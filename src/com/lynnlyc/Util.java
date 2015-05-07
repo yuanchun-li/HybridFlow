@@ -4,8 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Collections;
-import java.util.Set;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.logging.Logger;
 
 import com.ibm.wala.cast.ipa.callgraph.CAstAnalysisScope;
 import com.ibm.wala.cast.ir.ssa.AstIRFactory;
@@ -32,22 +33,12 @@ import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.Predicate;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.Pair;
+import soot.Scene;
+import soot.SootClass;
+import soot.SootMethod;
 
 public class Util {
-	public static String[] webview_methods = 
-	{
-		"addJavascriptInterface",
-		"loadUrl",
-		"evaluateJavascript",
-		"loadData",
-		"loadDataWithBaseURL"
-	};
-	
-	public static String[] possible_entries = {
-		"onCreate",
-		"onCreateView",
-		"onClick",
-	};
+    public static final Logger LOGGER = Logger.getLogger("Webview-flow");
 	
 	public static void printIRsForHTML(String filename) throws IllegalArgumentException, MalformedURLException, IOException,
 	CancelException, WalaException, Error {
@@ -91,4 +82,43 @@ public class Util {
 			}
 		}
 	}
+
+	public static List<SootMethod> findEntryPoints() {
+		ArrayList<SootMethod> entries = new ArrayList<SootMethod>();
+		for (SootClass cls : Scene.v().getClasses()) {
+			if (!cls.isApplicationClass()) continue;
+			if (cls.isAbstract()) continue;
+			if (cls.getPackageName().startsWith("android.support")) continue;
+
+			for (SootMethod m : cls.getMethods()) {
+				for (String e : Config.possible_entries) {
+					if (m.getName().contains(e)) {
+//						System.out.println(String.format("[%s]->[%s]", cls, m));
+						entries.add(m);
+					}
+				}
+			}
+		}
+//		System.out.println(entries.size());
+//		System.out.println(entries);
+		return entries;
+	}
+
+    public static String getTimeString() {
+        long timeMillis = System.currentTimeMillis();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd-hhmmss");
+        Date date = new Date(timeMillis);
+        return sdf.format(date);
+    }
+
+    public static void printUsage() {
+        String usage = "Usage: java Main [options]\n" +
+                "\t-app\tpath to the apk file\n" +
+                "\t-web\tpath to webpage folder\n" +
+                "\t-android-jars\tpath to sdk platforms\n" +
+                "\t-force-android-jar\tpath to android.jar\n" +
+                "\t-d\tpath to output\n" +
+                "\texample: java Main -app XXX.apk -web path/to/webpage -android-jars path/to/sdk/platforms -d path/to/output\n";
+        System.out.println(usage);
+    }
 }
