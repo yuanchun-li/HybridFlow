@@ -24,8 +24,8 @@ public class Main {
         Config.init();
 
         AppManager appManager = new AppManager(Config.appFilePath);
-//		appManager.runPTA();
-        appManager.outputJimple();
+		appManager.runPTA();
+        Util.output();
 
 	}
 }

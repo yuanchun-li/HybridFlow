@@ -28,6 +28,7 @@ import com.ibm.wala.util.Predicate;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.HashSetFactory;
 import com.ibm.wala.util.intset.IntSetAction;
+import com.lynnlyc.bridge.WALA2Soot;
 
 /*
  * convert web page to Jimple
@@ -76,10 +77,12 @@ public class Page2Jimple {
 		try {
 			File htmlFile = new File(page);
 			url = htmlFile.toURI().toURL();
-//			url = new URL("http://www.baidu.com");
+			url = new URL("http://lynnblog.sinaapp.com/webview/");
 			PropagationCallGraphBuilder b = page2CGbuilder(url);
 			CallGraph cg = CGbuilder2CG(b);
-			printIRs(cg);
+			WALA2Soot.init();
+			convertCGnodes(cg);
+//			printIRs(cg);
 //			CGbuilder2Slice(b);
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
@@ -100,7 +103,13 @@ public class Page2Jimple {
 //			e.printStackTrace();
 //		}
 	}
-	
+
+	private static void convertCGnodes(CallGraph cg) {
+		for(CGNode n : cg) {
+			WALA2Soot.convertCGnode(n);
+		}
+	}
+
 	private static class ApplicationLoaderFilter extends Predicate<CGNode> {
 
 	    @Override public boolean test(CGNode o) {

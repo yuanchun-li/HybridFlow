@@ -33,9 +33,11 @@ import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.Predicate;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.Pair;
+import soot.PackManager;
 import soot.Scene;
 import soot.SootClass;
 import soot.SootMethod;
+import soot.options.Options;
 
 public class Util {
     public static final Logger LOGGER = Logger.getLogger("Webview-flow");
@@ -118,7 +120,12 @@ public class Util {
                 "\t-android-jars\tpath to sdk platforms\n" +
                 "\t-force-android-jar\tpath to android.jar\n" +
                 "\t-d\tpath to output\n" +
+                "\t-f\toutput format, jimple or dex, default is dex" +
                 "\texample: java Main -app XXX.apk -web path/to/webpage -android-jars path/to/sdk/platforms -d path/to/output\n";
         System.out.println(usage);
+    }
+
+    public static void output() {
+        PackManager.v().writeOutput();
     }
 }

@@ -2,10 +2,11 @@ package com.lynnlyc.app;
 
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
-import soot.PackManager;
-import soot.PointsToAnalysis;
-import soot.Scene;
-import soot.SootMethod;
+import soot.*;
+import soot.jimple.InvokeExpr;
+import soot.jimple.internal.JInvokeStmt;
+import soot.jimple.internal.JVirtualInvokeExpr;
+import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.options.Options;
 
@@ -50,13 +51,62 @@ public class AppManager {
         PTA.runSparkPTA();
         this.pta = Scene.v().getPointsToAnalysis();
         this.isPTAFinished = true;
+        CallGraph cg = Scene.v().getCallGraph();
+        MethodOrMethodContext methodOrMethodContext = cg.sourceMethods().next();
+        SootMethod sootMethod = methodOrMethodContext.method();
+        Body body = sootMethod.getActiveBody();
+
+        return;
     }
 
     public void generateApp2WebBridge() {
+        String addJavascriptInterface = "addJavascriptInterface";
+        String loadUrl = "loadUrl";
 
-    }
+        for (SootClass cls : Scene.v().getClasses()) {
+            for (SootMethod m : cls.getMethods()) {
+                if (!m.hasActiveBody()) continue;
+                Body b = m.getActiveBody();
+                for (Unit u : b.getUnits()) {
+                    if (u instanceof JInvokeStmt) {
+                        InvokeExpr expr = ((JInvokeStmt) u).getInvokeExpr();
+                        if (expr instanceof JVirtualInvokeExpr) {
+                            JVirtualInvokeExpr virtual_expr = (JVirtualInvokeExpr) expr;
 
-    public void outputJimple() {
-        Options.v().set_output_format(Options.output_format_jimple);
+                            if (addJavascriptInterface.equals(virtual_expr.getMethod().getName())){
+                                Value base = virtual_expr.getBase();
+                                List<Value> args = virtual_expr.getArgs();
+                                StringBuffer sb = new StringBuffer();
+                                sb.append("\nClass: " + cls);
+                                sb.append("\n\tMethod: " + m);
+                                sb.append("\n\t\tUnit: " + u);
+                                sb.append("\n\t\t\tBase: " + base);
+                                if (base instanceof Local) {
+                                    PointsToSet reaching_objects = pta.reachingObjects((Local) base);
+                                    sb.append(String.format("\n\t\t\t\tposible string constants: %s",
+                                            reaching_objects.possibleStringConstants()));
+                                    sb.append(String.format("\n\t\t\t\tposible types: %s",
+                                            reaching_objects.possibleTypes()));
+                                }
+
+                                for (Value arg : args) {
+                                    sb.append("\n\t\t\tArg: " + arg);
+                                    if (arg instanceof Local) {
+                                        PointsToSet reaching_objects = pta.reachingObjects((Local) arg);
+                                        sb.append(String.format("\n\t\t\t\tposible string constants: %s",
+                                                reaching_objects.possibleStringConstants()));
+                                        sb.append(String.format("\n\t\t\t\tposible types: %s",
+                                                reaching_objects.possibleTypes()));
+                                    }
+                                }
+                                sb.append("\n");
+                                Util.LOGGER.log(Level.INFO, sb.toString());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

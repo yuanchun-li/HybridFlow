@@ -9,15 +9,9 @@
 
 package com.lynnlyc;
 
-import org.apache.commons.cli.Option;
-import org.slf4j.LoggerFactory;
-import soot.Scene;
-import soot.SootClass;
-import soot.SootMethod;
 import soot.options.Options;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -25,7 +19,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Created by yuanchun on 5/4/15.
@@ -49,6 +42,9 @@ public class Config {
 
     // Directory for result output
     public static String outputDirPath = "";
+
+    // Output format
+    public static String outputFormat = "dex";
 
     public static boolean isInitialized = false;
 
@@ -86,6 +82,7 @@ public class Config {
                 case "-android-jars": Config.androidPlatformDir = value; break;
                 case "-force-android-jar": Config.forceAndroidJarPath = value; break;
                 case "-web": Config.webDirPath = value; break;
+                case "-f": Config.outputFormat = value; break;
                 default: return false;
             }
         }
@@ -95,6 +92,10 @@ public class Config {
         }
 
         if ("".equals(Config.appFilePath) || "".equals(Config.outputDirPath)) {
+            return false;
+        }
+
+        if (!("jimple".equals(Config.outputFormat) || "dex".equals(Config.outputFormat))) {
             return false;
         }
 
@@ -120,6 +121,18 @@ public class Config {
         Options.v().set_whole_program(true);
         Options.v().set_src_prec(Options.src_prec_apk);
         Options.v().set_output_dir(Config.outputDirPath);
+
+        if ("jimple".equals(Config.outputFormat)) {
+            Options.v().set_output_format(Options.output_format_jimple);
+        }
+        else if ("dex".equals(Config.outputFormat)) {
+            Options.v().set_output_format(Options.output_format_dex);
+        }
+        else {
+            Util.LOGGER.log(Level.WARNING, "unrecognized output format!");
+            Options.v().set_output_format(Options.output_format_dex);
+        }
+
         List<String> process_dirs = new ArrayList<>();
         process_dirs.add(Config.appFilePath);
         Options.v().set_process_dir(process_dirs);
