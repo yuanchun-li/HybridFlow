@@ -15,6 +15,7 @@ import soot.Type;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import com.ibm.wala.scandroid.*;
 
 /**
  * Created by yuanchun on 5/10/15.

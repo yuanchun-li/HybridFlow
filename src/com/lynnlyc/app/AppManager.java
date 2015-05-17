@@ -2,6 +2,7 @@ package com.lynnlyc.app;
 
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
+import dk.brics.string.StringAnalysis;
 import soot.*;
 import soot.jimple.InvokeExpr;
 import soot.jimple.internal.JInvokeStmt;
@@ -9,8 +10,12 @@ import soot.jimple.internal.JVirtualInvokeExpr;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.options.Options;
+import soot.util.Chain;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -38,6 +43,32 @@ public class AppManager {
             return;
         }
         Scene.v().loadNecessaryClasses();
+
+        HashSet<SootClass> androidLibClasses = new HashSet<SootClass>();
+        for(SootClass cls : Scene.v().getApplicationClasses()) {
+            String cl = cls.getName();
+            if (cl.startsWith("android.support")) {
+                androidLibClasses.add(cls);
+            }
+            else if (cl.startsWith("android.support"))
+                androidLibClasses.add(cls);
+            else if (cl.endsWith(".R") || cl.contains(".R$"))
+                androidLibClasses.add(cls);
+        }
+        for(SootClass cls : androidLibClasses) {
+            cls.setLibraryClass();
+        }
+
+        for(SootClass cls : Scene.v().getApplicationClasses()) {
+            Iterator mi = cls.getMethods().iterator();
+            while(mi.hasNext()) {
+                SootMethod sm = (SootMethod)mi.next();
+                if(sm.isConcrete()) {
+                    sm.retrieveActiveBody();
+                }
+            }
+        }
+
         appEntryPoints = Util.findEntryPoints();
         Scene.v().setEntryPoints(appEntryPoints);
         this.isPrepared = true;
@@ -51,12 +82,35 @@ public class AppManager {
         PTA.runSparkPTA();
         this.pta = Scene.v().getPointsToAnalysis();
         this.isPTAFinished = true;
-        CallGraph cg = Scene.v().getCallGraph();
-        MethodOrMethodContext methodOrMethodContext = cg.sourceMethods().next();
-        SootMethod sootMethod = methodOrMethodContext.method();
-        Body body = sootMethod.getActiveBody();
 
         return;
+    }
+
+    public void runJSA() {
+//        Scene.v().loadBasicClasses();
+//        Iterator i = Options.v().process_dir().iterator();
+//
+//        while(i.hasNext()) {
+//            String path = (String)i.next();
+//            Iterator ii = SourceLocator.v().getClassesUnder(path).iterator();
+//
+//            while(ii.hasNext()) {
+//                String cl = (String)ii.next();
+//                if (cl.startsWith("android.support"))
+//                    continue;
+//                if (cl.endsWith(".R") || cl.contains(".R$"))
+//                    continue;
+//                System.out.println(cl);
+//                StringAnalysis.loadClass(cl);
+//            }
+//        }
+        JSA.run();
+    }
+
+    public void dumpAllApplicationClasses(PrintStream os) {
+        for (SootClass cls : Scene.v().getApplicationClasses()) {
+            os.println(cls);
+        }
     }
 
     public void generateApp2WebBridge() {

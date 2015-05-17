@@ -145,5 +145,11 @@ public class Config {
         Util.LOGGER.log(Level.INFO,  "initialization finished...");
     }
 
+    public static void turnOffWholeProgramAnalysis() {
+        Options.v().set_whole_program(false);
+    }
 
+    public static void turnOnWholeProgramAnalysis() {
+        Options.v().set_whole_program(true);
+    }
 }
