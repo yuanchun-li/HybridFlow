@@ -12,6 +12,7 @@ package com.lynnlyc;
 import soot.options.Options;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -48,8 +49,10 @@ public class Config {
 
     public static boolean isInitialized = false;
 
-    // printer of log output
-    private static PrintStream ps;
+    // printer of output
+    private static File logfile;
+    private static File bridgeFile;
+    private static PrintStream bridgePs;
 
     // noticeable webview methods
     public static String[] webview_methods = {
@@ -102,9 +105,11 @@ public class Config {
         File workingDir = new File(String.format("%s/webviewflow_%s/", Config.outputDirPath, Util.getTimeString()));
         Config.outputDirPath = workingDir.getPath();
         if (!workingDir.exists()) workingDir.mkdirs();
-        File logfile = new File(Config.outputDirPath + "/analysis.log");
+        logfile = new File(Config.outputDirPath + "/analysis.log");
+        bridgeFile = new File(Config.outputDirPath + "/bridge.txt");
 
         try {
+            bridgePs = new PrintStream(new FileOutputStream(bridgeFile));
             FileHandler fh = new FileHandler(logfile.getAbsolutePath());
             Util.LOGGER.addHandler(fh);
         } catch (IOException e) {
@@ -145,11 +150,11 @@ public class Config {
         Util.LOGGER.log(Level.INFO,  "initialization finished...");
     }
 
-    public static void turnOffWholeProgramAnalysis() {
-        Options.v().set_whole_program(false);
-    }
-
-    public static void turnOnWholeProgramAnalysis() {
-        Options.v().set_whole_program(true);
+    public static PrintStream getBridgePs() {
+        if (bridgePs == null) {
+            Util.LOGGER.log(Level.WARNING, "bridge printer is null, use stdout instead.");
+            return System.out;
+        }
+        return bridgePs;
     }
 }

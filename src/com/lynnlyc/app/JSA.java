@@ -28,29 +28,17 @@ public class JSA {
 
 	public static void init() {
 		SignatureWithArgOrRet signatureWithArgOrRet = new SignatureWithArgOrRet(
-				"<android.webkit.WebView: void loadUrl(java.lang.String)>", 0);
+				Util.loadUrlSig, 0);
 		signatureWithArgOrRets.add(signatureWithArgOrRet);
 
 		signatureWithArgOrRet = new SignatureWithArgOrRet(
-				"<android.webkit.WebView: void addJavascriptInterface(java.lang.Object,java.lang.String)>", 1);
+				Util.addJavascriptInterfaceSig, 1);
 		signatureWithArgOrRets.add(signatureWithArgOrRet);
 	}
 
-	public static void run() {
-		init();
-
-		Collection<ValueBox> hotspots = new ArrayList<ValueBox>();
-		for (SignatureWithArgOrRet signatureWithArgOrRet : signatureWithArgOrRets) {
-			List<ValueBox> values;
-			if (signatureWithArgOrRet.position == -1)
-				values = StringAnalysis.getReturnExpressions(signatureWithArgOrRet.signature);
-			else
-				values = StringAnalysis.getArgumentExpressions(signatureWithArgOrRet.signature, signatureWithArgOrRet.position);
-			sig2values.put(signatureWithArgOrRet, values);
-			hotspots.addAll(values);
-		}
-
+	public static StringAnalysis run(Collection<ValueBox> hotspots) {
 		jsa = new StringAnalysis(hotspots);
+		return jsa;
 	}
 	
 	public static void dumpJSAresults(PrintStream os) {
@@ -67,8 +55,8 @@ public class JSA {
 				os.println(value);
 				Automaton automaton = jsa.getAutomaton(value);
 				os.println("[Automation]");
-				os.println(automaton);
-				os.println(automaton.getFiniteStrings());
+				// os.println(automaton);
+				os.println(automaton.getShortestExample(true));
 			}
 		}
 	}

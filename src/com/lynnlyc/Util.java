@@ -41,6 +41,11 @@ import soot.options.Options;
 
 public class Util {
     public static final Logger LOGGER = Logger.getLogger("Webview-flow");
+
+	public static final String loadUrlSig =
+			"<android.webkit.WebView: void loadUrl(java.lang.String)>";
+	public static final String addJavascriptInterfaceSig =
+			"<android.webkit.WebView: void addJavascriptInterface(java.lang.Object,java.lang.String)>";
 	
 	public static void printIRsForHTML(String filename) throws IllegalArgumentException, MalformedURLException, IOException,
 	CancelException, WalaException, Error {
@@ -87,18 +92,11 @@ public class Util {
 
 	public static List<SootMethod> findEntryPoints() {
 		ArrayList<SootMethod> entries = new ArrayList<SootMethod>();
-		for (SootClass cls : Scene.v().getClasses()) {
-			if (!cls.isApplicationClass()) continue;
+		for (SootClass cls : Scene.v().getApplicationClasses()) {
 			if (cls.isAbstract()) continue;
-			if (cls.getPackageName().startsWith("android.support")) continue;
 
 			for (SootMethod m : cls.getMethods()) {
-				for (String e : Config.possible_entries) {
-					if (m.getName().contains(e)) {
-//						System.out.println(String.format("[%s]->[%s]", cls, m));
-						entries.add(m);
-					}
-				}
+				entries.add(m);
 			}
 		}
 //		System.out.println(entries.size());
