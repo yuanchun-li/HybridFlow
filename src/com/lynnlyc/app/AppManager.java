@@ -1,6 +1,5 @@
 package com.lynnlyc.app;
 
-import beaver.Parser;
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import com.lynnlyc.bridge.*;
@@ -47,8 +46,9 @@ public class AppManager {
     public List<SootMethod> appEntryPoints = new ArrayList<SootMethod>();
 
     private void prepare() {
+        Util.LOGGER.info("preparing app analysis");
         if (!Config.isInitialized) {
-            Util.LOGGER.log(Level.WARNING, "Configuration not initialized");
+            Util.LOGGER.warning("Configuration not initialized");
             return;
         }
         Scene.v().loadNecessaryClasses();
@@ -57,31 +57,31 @@ public class AppManager {
             WebViewClass = Scene.v().getSootClass("android.webkit.WebView");
         } catch (Exception e) {
             Util.LOGGER.warning("Can not find WebView class");
-            e.printStackTrace(Config.getLogPs());
+            Util.logException(e);
         }
         try {
             WebChromeClientClass = Scene.v().getSootClass("android.webkit.WebChromeClient");
         } catch (Exception e) {
             Util.LOGGER.warning("Can not find WebChromeClient class");
-            e.printStackTrace(Config.getLogPs());
+            Util.logException(e);
         }
         try {
             WebViewClientClass = Scene.v().getSootClass("android.webkit.WebViewClient");
         } catch (Exception e) {
             Util.LOGGER.warning("Can not find WebViewClient class");
-            e.printStackTrace(Config.getLogPs());
+            Util.logException(e);
         }
         try {
             loadUrlMethod = Scene.v().getMethod(Util.loadUrlSig);
         } catch (Exception e) {
             Util.LOGGER.warning("Can not find loadUrl method");
-            e.printStackTrace(Config.getLogPs());
+            Util.logException(e);
         }
         try {
             addJavascriptInterfaceMethod = Scene.v().getMethod(Util.addJavascriptInterfaceSig);
         } catch (Exception e) {
             Util.LOGGER.warning("Can not find addJavascriptInterface method");
-            e.printStackTrace(Config.getLogPs());
+            Util.logException(e);
         }
         // filter all support classes and R classes
         HashSet<SootClass> androidLibClasses = new HashSet<SootClass>();
@@ -104,11 +104,11 @@ public class AppManager {
         // filter all webview related classes
         webviewClasses = new HashSet<SootClass>();
         for(SootClass cls : Scene.v().getApplicationClasses()) {
-            if (WebChromeClientClass != null && cls.getSuperclass() == WebChromeClientClass) {
+            if (Util.isSimilarClass(cls, WebViewClientClass)) {
                 webviewClasses.add(cls);
                 continue;
             }
-            if (webviewClasses != null && cls.getSuperclass() == WebViewClientClass) {
+            if (Util.isSimilarClass(cls, WebChromeClientClass)) {
                 webviewClasses.add(cls);
                 continue;
             }
@@ -161,17 +161,19 @@ public class AppManager {
 
     public void runPTA() {
         if (!this.isPrepared) {
-            Util.LOGGER.log(Level.WARNING, "App not perpared " + this.appFilePath);
+            Util.LOGGER.warning("App not perpared " + this.appFilePath);
             return;
         }
+        Util.LOGGER.info("running PTA of app");
         try {
             PTA.runSparkPTA();
+            this.pta = Scene.v().getPointsToAnalysis();
         }
         catch (Exception e) {
             Util.LOGGER.warning("Spark PTA failed");
-            e.printStackTrace(Config.getLogPs());
+            Util.logException(e);
         }
-        this.pta = Scene.v().getPointsToAnalysis();
+
         this.isPTAFinished = true;
 
         return;
@@ -182,36 +184,49 @@ public class AppManager {
             Util.LOGGER.log(Level.WARNING, "App not perpared " + this.appFilePath);
             return;
         }
+        Util.LOGGER.info("running JSA of app");
 
-        ArrayList<ValueBox> hotspots = new ArrayList<ValueBox>();
+        HashSet<ValueBox> hotspots = new HashSet<ValueBox>();
 
         for (SootClass cls : webviewClasses) {
             for (SootMethod m : cls.getMethods()) {
-                if (!m.hasActiveBody()) continue;
-                Body b = m.getActiveBody();
+                if (!m.isConcrete()) continue;
+                Body b = null;
+                if (m.hasActiveBody()) b = m.getActiveBody();
+                else {
+                    try {
+                        b = m.retrieveActiveBody();
+                    }
+                    catch (Exception e) {
+                        continue;
+                    }
+                }
+
                 for (Unit u : b.getUnits()) {
                     try {
                         Stmt stmt = (Stmt) u;
                         if (stmt.containsInvokeExpr()) {
                             InvokeExpr expr = stmt.getInvokeExpr();
                             SootMethod tgt = expr.getMethod();
-                            if (loadUrlMethod != null && tgt == loadUrlMethod) {
+                            if (Util.isSimilarMethod(tgt, loadUrlMethod)) {
                                 ValueBox urlValue = expr.getArgBox(0);
                                 hotspots.add(urlValue);
-                            } else if (addJavascriptInterfaceMethod != null && tgt == addJavascriptInterfaceMethod) {
+                            } else if (Util.isSimilarMethod(tgt, addJavascriptInterfaceMethod)) {
                                 ValueBox interfaceNameValue = expr.getArgBox(1);
                                 hotspots.add(interfaceNameValue);
                             }
                         }
                     } catch (Exception e) {
                         Util.LOGGER.warning("error generating hotspots for: " + m + u);
-                        e.printStackTrace(Config.getLogPs());
+                        Util.logException(e);
                     }
                 }
             }
         }
+        JSA.setHotspots(hotspots);
+
         try {
-            this.jsa = JSA.run(hotspots);
+            this.jsa = JSA.run();
         }
         catch (Exception e) {
             Util.LOGGER.warning("JSA failed");
@@ -228,8 +243,10 @@ public class AppManager {
     }
 
     public void generateBridges() {
+        Util.LOGGER.info("generating webview bridge of app");
+
         for (SootClass cls : webviewClasses) {
-            if (cls.getSuperclass() == WebChromeClientClass) {
+            if (Util.isSimilarClass(cls, WebChromeClientClass)) {
                 for (SootMethod m : cls.getMethods()) {
                     if (m.getName().equals("onJsAlert")) {
                         VirtualWebview.v().addBridge(new EventBridge("alert", m));
@@ -245,7 +262,7 @@ public class AppManager {
                     }
                 }
             }
-            else if (cls.getSuperclass() == WebViewClientClass) {
+            else if (Util.isSimilarClass(cls, WebViewClientClass)) {
                 for (SootMethod m : cls.getMethods()) {
                     if (m.getName().equals("shouldOverrideUrlLoading")) {
                         VirtualWebview.v().addBridge(new EventBridge("url", m));
@@ -254,8 +271,18 @@ public class AppManager {
             }
 
             for (SootMethod m : cls.getMethods()) {
-                if (!m.hasActiveBody()) continue;
-                Body b = m.getActiveBody();
+                if (!m.isConcrete()) continue;
+                Body b = null;
+                if (m.hasActiveBody()) b = m.getActiveBody();
+                else {
+                    try {
+                        b = m.retrieveActiveBody();
+                    }
+                    catch (Exception e) {
+                        continue;
+                    }
+                }
+
                 int unitid = 0;
                 for (Unit u : b.getUnits()) {
                     try {
@@ -264,31 +291,31 @@ public class AppManager {
                             BridgeContext context = new BridgeContext(m, u, unitid);
                             InvokeExpr expr = stmt.getInvokeExpr();
                             SootMethod tgt = expr.getMethod();
-                            if (loadUrlMethod != null && tgt == loadUrlMethod) {
+                            if (Util.isSimilarMethod(tgt, loadUrlMethod)) {
                                 ValueBox urlValue = expr.getArgBox(0);
-                                String urlStr;
-                                if (this.jsa == null) {
-                                    urlStr = urlValue.toString();
-                                }
-                                else {
+                                String urlStr = null;
+                                if (this.jsa != null) {
                                     Automaton urlAutomaton = this.jsa.getAutomaton(urlValue);
                                     urlStr = urlAutomaton.getShortestExample(true);
+                                }
+                                if (urlStr == null) {
+                                    urlStr = urlValue.toString();
                                 }
                                 if (urlStr.contains("javascript:")) {
                                     VirtualWebview.v().addBridge(new JavascriptBridge(context, urlStr));
                                 } else {
                                     VirtualWebview.v().addBridge(new UrlBridge(context, urlStr));
                                 }
-                            } else if (addJavascriptInterfaceMethod != null && tgt == addJavascriptInterfaceMethod) {
+                            } else if (Util.isSimilarMethod(tgt, addJavascriptInterfaceMethod)) {
                                 ValueBox interfaceNameValue = expr.getArgBox(1);
-                                String interfaceNameStr;
-                                if (this.jsa == null) {
-                                    interfaceNameStr = interfaceNameValue.toString();
-                                }
-                                else {
+                                String interfaceNameStr = null;
+
+                                if (this.jsa != null) {
                                     Automaton interfaceNameAutomaton = this.jsa.getAutomaton(interfaceNameValue);
                                     interfaceNameStr = interfaceNameAutomaton.getShortestExample(true);
                                 }
+                                if (interfaceNameStr == null)
+                                    interfaceNameStr = interfaceNameValue.toString();
 
                                 Value interfaceObj = expr.getArg(0);
                                 HashSet<Type> possibleTypes = new HashSet<Type>();
@@ -306,8 +333,8 @@ public class AppManager {
                             }
                         }
                     } catch (Exception e) {
-                        Util.LOGGER.warning("error generating bridges for: " + m + u);
-                        e.printStackTrace(Config.getLogPs());
+                        Util.LOGGER.warning(String.format("error generating bridges.\n[method] %s\n[unit] %s\n", m, u));
+                        Util.logException(e);
                     }
                     unitid++;
                 }

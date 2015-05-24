@@ -105,15 +105,21 @@ public class Config {
         }
 
         File workingDir = new File(String.format("%s/webviewflow_%s/", Config.outputDirPath, Util.getTimeString()));
+        File appFile = new File(Config.appFilePath);
+        if (!appFile.exists()) {
+            System.out.println("invalid app file path");
+            return false;
+        }
         Config.outputDirPath = workingDir.getPath();
         if (!workingDir.exists()) workingDir.mkdirs();
-        logFile = new File(Config.outputDirPath + "/analysis.log");
+        logFile = new File(Config.outputDirPath + "/exception.log");
         bridgeFile = new File(Config.outputDirPath + "/bridge.txt");
+        File normalLogFile = new File(Config.outputDirPath + "/analysis.log");
 
         try {
             bridgePs = new PrintStream(new FileOutputStream(bridgeFile));
             logPs = new PrintStream(new FileOutputStream(logFile));
-            FileHandler fh = new FileHandler(logFile.getAbsolutePath());
+            FileHandler fh = new FileHandler(normalLogFile.getAbsolutePath());
             fh.setFormatter(new SimpleFormatter());
             Util.LOGGER.addHandler(fh);
         } catch (IOException e) {
@@ -162,7 +168,7 @@ public class Config {
         return bridgePs;
     }
 
-    public static PrintStream getLogPs() {
+    public static PrintStream getExceptionLogPs() {
         if (logPs == null) {
             Util.LOGGER.warning("log printer is null, use stdout instead.");
             return System.out;

@@ -11,10 +11,7 @@ import soot.ValueBox;
 
 import java.io.PrintStream;
 import java.security.cert.PKIXRevocationChecker;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 /*
  * analyze String argument of webview API
@@ -23,6 +20,7 @@ import java.util.List;
 public class JSA {
 	public static StringAnalysis jsa;
 
+	private static HashSet<ValueBox> hotspots = null;
 	public static ArrayList<SignatureWithArgOrRet> signatureWithArgOrRets = new ArrayList<SignatureWithArgOrRet>();
 	public static HashMap<SignatureWithArgOrRet, List<ValueBox>> sig2values = new HashMap<SignatureWithArgOrRet, List<ValueBox>>();
 
@@ -36,7 +34,7 @@ public class JSA {
 		signatureWithArgOrRets.add(signatureWithArgOrRet);
 	}
 
-	public static StringAnalysis run(Collection<ValueBox> hotspots) {
+	public static StringAnalysis run() {
 		jsa = new StringAnalysis(hotspots);
 		return jsa;
 	}
@@ -59,6 +57,14 @@ public class JSA {
 				os.println(automaton.getShortestExample(true));
 			}
 		}
+	}
+
+	public static void setHotspots(HashSet<ValueBox> hotspots1) {
+		hotspots = hotspots1;
+	}
+
+	public static HashSet<ValueBox> getHotspots() {
+		return hotspots;
 	}
 }
 

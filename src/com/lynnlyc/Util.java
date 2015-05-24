@@ -1,7 +1,6 @@
 package com.lynnlyc;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -126,4 +125,39 @@ public class Util {
     public static void output() {
         PackManager.v().writeOutput();
     }
+
+	public static void logException(Exception e) {
+		StringWriter sw = new StringWriter();
+		e.printStackTrace(new PrintWriter(sw));
+		Util.LOGGER.warning(sw.toString());
+	}
+
+	public static boolean isSimilarClass(SootClass c1, SootClass c2) {
+		if (c1 == null || c2 == null) {
+			return false;
+		}
+		if (c1 == c2) {
+			return true;
+		}
+		while (c1.hasSuperclass()) {
+			c1 = c1.getSuperclass();
+			if (c1 == c2) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public static boolean isSimilarMethod(SootMethod m1, SootMethod m2) {
+		if (m1 == null || m2 == null) {
+			return false;
+		}
+		if (m1 == m2) {
+			return true;
+		}
+		if ((m1.getSubSignature() == m2.getSubSignature()) && Util.isSimilarClass(m1.getDeclaringClass(), m2.getDeclaringClass())) {
+			return true;
+		}
+		return false;
+	}
 }
