@@ -7,12 +7,14 @@ package com.lynnlyc.bridge;
 public class JsInterfaceBridge extends Bridge {
     private soot.Type interfaceType;
     private String interfaceName;
-    public JsInterfaceBridge(soot.Type interfaceType, String interfaceName) {
+    private BridgeContext context;
+    public JsInterfaceBridge(soot.Type interfaceType, String interfaceName, BridgeContext context) {
         this.interfaceType = interfaceType;
         this.interfaceName = interfaceName;
+        this.context = context;
     }
 
     public String toString() {
-        return String.format("JsInterfaceBridge:\n[Type]%s,\n[name]%s\n", this.interfaceType, this.interfaceName);
+        return String.format("JsInterfaceBridge:\n[context]%s,\n[Type]%s,\n[name]%s\n", this.context, this.interfaceType, this.interfaceName);
     }
 }

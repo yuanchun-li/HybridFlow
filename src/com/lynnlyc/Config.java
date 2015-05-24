@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import java.util.logging.SimpleFormatter;
 
 /**
  * Created by yuanchun on 5/4/15.
@@ -50,7 +51,8 @@ public class Config {
     public static boolean isInitialized = false;
 
     // printer of output
-    private static File logfile;
+    private static File logFile;
+    private static PrintStream logPs;
     private static File bridgeFile;
     private static PrintStream bridgePs;
 
@@ -105,12 +107,14 @@ public class Config {
         File workingDir = new File(String.format("%s/webviewflow_%s/", Config.outputDirPath, Util.getTimeString()));
         Config.outputDirPath = workingDir.getPath();
         if (!workingDir.exists()) workingDir.mkdirs();
-        logfile = new File(Config.outputDirPath + "/analysis.log");
+        logFile = new File(Config.outputDirPath + "/analysis.log");
         bridgeFile = new File(Config.outputDirPath + "/bridge.txt");
 
         try {
             bridgePs = new PrintStream(new FileOutputStream(bridgeFile));
-            FileHandler fh = new FileHandler(logfile.getAbsolutePath());
+            logPs = new PrintStream(new FileOutputStream(logFile));
+            FileHandler fh = new FileHandler(logFile.getAbsolutePath());
+            fh.setFormatter(new SimpleFormatter());
             Util.LOGGER.addHandler(fh);
         } catch (IOException e) {
             e.printStackTrace();
@@ -156,5 +160,13 @@ public class Config {
             return System.out;
         }
         return bridgePs;
+    }
+
+    public static PrintStream getLogPs() {
+        if (logPs == null) {
+            Util.LOGGER.warning("log printer is null, use stdout instead.");
+            return System.out;
+        }
+        return logPs;
     }
 }

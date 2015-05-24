@@ -9,6 +9,7 @@ import dk.brics.string.StringAnalysis;
 import soot.*;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
+import soot.jimple.internal.ImmediateBox;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -29,13 +30,13 @@ public class AppManager {
     private PointsToAnalysis pta = null;
     private StringAnalysis jsa = null;
 
-    private SootClass WebViewClass;
-    private SootClass WebChromeClientClass;
-    private SootClass WebViewClientClass;
-    private SootMethod loadUrlMethod;
-    private SootMethod addJavascriptInterfaceMethod;
+    private SootClass WebViewClass = null;
+    private SootClass WebChromeClientClass = null;
+    private SootClass WebViewClientClass = null;
+    private SootMethod loadUrlMethod = null;
+    private SootMethod addJavascriptInterfaceMethod = null;
 
-    private HashSet<SootClass> webviewClasses;
+    private HashSet<SootClass> webviewClasses = new HashSet<SootClass>();
 
     public AppManager(String appFilePath) {
         this.appFilePath = appFilePath;
@@ -52,12 +53,36 @@ public class AppManager {
         }
         Scene.v().loadNecessaryClasses();
 
-        WebViewClass = Scene.v().getSootClass("android.webkit.WebView");
-        WebChromeClientClass = Scene.v().getSootClass("android.webkit.WebChromeClient");
-        WebViewClientClass = Scene.v().getSootClass("android.webkit.WebViewClient");
-        loadUrlMethod = Scene.v().getMethod(Util.loadUrlSig);
-        addJavascriptInterfaceMethod = Scene.v().getMethod(Util.addJavascriptInterfaceSig);
-
+        try {
+            WebViewClass = Scene.v().getSootClass("android.webkit.WebView");
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find WebView class");
+            e.printStackTrace(Config.getLogPs());
+        }
+        try {
+            WebChromeClientClass = Scene.v().getSootClass("android.webkit.WebChromeClient");
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find WebChromeClient class");
+            e.printStackTrace(Config.getLogPs());
+        }
+        try {
+            WebViewClientClass = Scene.v().getSootClass("android.webkit.WebViewClient");
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find WebViewClient class");
+            e.printStackTrace(Config.getLogPs());
+        }
+        try {
+            loadUrlMethod = Scene.v().getMethod(Util.loadUrlSig);
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find loadUrl method");
+            e.printStackTrace(Config.getLogPs());
+        }
+        try {
+            addJavascriptInterfaceMethod = Scene.v().getMethod(Util.addJavascriptInterfaceSig);
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find addJavascriptInterface method");
+            e.printStackTrace(Config.getLogPs());
+        }
         // filter all support classes and R classes
         HashSet<SootClass> androidLibClasses = new HashSet<SootClass>();
         for(SootClass cls : Scene.v().getApplicationClasses()) {
@@ -79,11 +104,11 @@ public class AppManager {
         // filter all webview related classes
         webviewClasses = new HashSet<SootClass>();
         for(SootClass cls : Scene.v().getApplicationClasses()) {
-            if (cls.getSuperclass() == WebChromeClientClass) {
+            if (WebChromeClientClass != null && cls.getSuperclass() == WebChromeClientClass) {
                 webviewClasses.add(cls);
                 continue;
             }
-            if (cls.getSuperclass() == WebViewClientClass) {
+            if (webviewClasses != null && cls.getSuperclass() == WebViewClientClass) {
                 webviewClasses.add(cls);
                 continue;
             }
@@ -139,7 +164,13 @@ public class AppManager {
             Util.LOGGER.log(Level.WARNING, "App not perpared " + this.appFilePath);
             return;
         }
-        PTA.runSparkPTA();
+        try {
+            PTA.runSparkPTA();
+        }
+        catch (Exception e) {
+            Util.LOGGER.warning("Spark PTA failed");
+            e.printStackTrace(Config.getLogPs());
+        }
         this.pta = Scene.v().getPointsToAnalysis();
         this.isPTAFinished = true;
 
@@ -164,24 +195,27 @@ public class AppManager {
                         if (stmt.containsInvokeExpr()) {
                             InvokeExpr expr = stmt.getInvokeExpr();
                             SootMethod tgt = expr.getMethod();
-                            if (tgt == loadUrlMethod) {
+                            if (loadUrlMethod != null && tgt == loadUrlMethod) {
                                 ValueBox urlValue = expr.getArgBox(0);
                                 hotspots.add(urlValue);
-                            } else if (tgt == addJavascriptInterfaceMethod) {
+                            } else if (addJavascriptInterfaceMethod != null && tgt == addJavascriptInterfaceMethod) {
                                 ValueBox interfaceNameValue = expr.getArgBox(1);
                                 hotspots.add(interfaceNameValue);
                             }
                         }
                     } catch (Exception e) {
-                        Util.LOGGER.log(Level.WARNING, "error generating hotspots for: " + m + u);
-                        e.printStackTrace();
+                        Util.LOGGER.warning("error generating hotspots for: " + m + u);
+                        e.printStackTrace(Config.getLogPs());
                     }
                 }
             }
         }
-
-        this.jsa = JSA.run(hotspots);
-
+        try {
+            this.jsa = JSA.run(hotspots);
+        }
+        catch (Exception e) {
+            Util.LOGGER.warning("JSA failed");
+        }
         this.isJSAFinished = true;
     }
 
@@ -227,31 +261,53 @@ public class AppManager {
                     try {
                         Stmt stmt = (Stmt) u;
                         if (stmt.containsInvokeExpr()) {
+                            BridgeContext context = new BridgeContext(m, u, unitid);
                             InvokeExpr expr = stmt.getInvokeExpr();
                             SootMethod tgt = expr.getMethod();
-                            if (tgt == loadUrlMethod) {
-                                BridgeContext context = new BridgeContext(m, u, unitid);
+                            if (loadUrlMethod != null && tgt == loadUrlMethod) {
                                 ValueBox urlValue = expr.getArgBox(0);
-                                Automaton urlAutomaton = this.jsa.getAutomaton(urlValue);
-                                String urlStr = urlAutomaton.getShortestExample(true);
-                                if (urlStr.startsWith("javascript:")) {
+                                String urlStr;
+                                if (this.jsa == null) {
+                                    urlStr = urlValue.toString();
+                                }
+                                else {
+                                    Automaton urlAutomaton = this.jsa.getAutomaton(urlValue);
+                                    urlStr = urlAutomaton.getShortestExample(true);
+                                }
+                                if (urlStr.contains("javascript:")) {
                                     VirtualWebview.v().addBridge(new JavascriptBridge(context, urlStr));
                                 } else {
                                     VirtualWebview.v().addBridge(new UrlBridge(context, urlStr));
                                 }
-                            } else if (tgt == addJavascriptInterfaceMethod) {
-                                PointsToSet interfaceClass = this.pta.reachingObjects((Local) expr.getArg(0));
+                            } else if (addJavascriptInterfaceMethod != null && tgt == addJavascriptInterfaceMethod) {
                                 ValueBox interfaceNameValue = expr.getArgBox(1);
-                                Automaton interfaceNameAutomaton = this.jsa.getAutomaton(interfaceNameValue);
-                                String interfaceNameStr = interfaceNameAutomaton.getShortestExample(true);
-                                for (Type possibleType : interfaceClass.possibleTypes()) {
-                                    VirtualWebview.v().addBridge(new JsInterfaceBridge(possibleType, interfaceNameStr));
+                                String interfaceNameStr;
+                                if (this.jsa == null) {
+                                    interfaceNameStr = interfaceNameValue.toString();
+                                }
+                                else {
+                                    Automaton interfaceNameAutomaton = this.jsa.getAutomaton(interfaceNameValue);
+                                    interfaceNameStr = interfaceNameAutomaton.getShortestExample(true);
+                                }
+
+                                Value interfaceObj = expr.getArg(0);
+                                HashSet<Type> possibleTypes = new HashSet<Type>();
+
+                                if (this.pta == null) {
+                                    possibleTypes.add(interfaceObj.getType());
+                                }
+                                else {
+                                    PointsToSet interfaceClass = this.pta.reachingObjects((Local) interfaceObj);
+                                    possibleTypes.addAll(interfaceClass.possibleTypes());
+                                }
+                                for (Type possibleType : possibleTypes) {
+                                    VirtualWebview.v().addBridge(new JsInterfaceBridge(possibleType, interfaceNameStr, context));
                                 }
                             }
                         }
                     } catch (Exception e) {
-                        Util.LOGGER.log(Level.WARNING, "error generating bridges for: " + m + u);
-                        e.printStackTrace();
+                        Util.LOGGER.warning("error generating bridges for: " + m + u);
+                        e.printStackTrace(Config.getLogPs());
                     }
                     unitid++;
                 }
