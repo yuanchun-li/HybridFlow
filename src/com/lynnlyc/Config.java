@@ -152,6 +152,7 @@ public class Config {
         Options.v().set_whole_program(true);
         Options.v().set_src_prec(Options.src_prec_apk);
         Options.v().set_output_dir(Config.outputDirPath);
+        Options.v().set_debug(false);
 
         if ("jimple".equals(Config.outputFormat)) {
             Options.v().set_output_format(Options.output_format_jimple);
