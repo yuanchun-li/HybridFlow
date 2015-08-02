@@ -9,6 +9,7 @@
 
 package com.lynnlyc;
 
+import org.apache.commons.cli.*;
 import soot.options.Options;
 
 import java.io.File;
@@ -74,33 +75,48 @@ public class Config {
     };
 
     public static boolean parseArgs(String[] args) {
-        int i;
-        if (args.length == 0 || args.length % 2 == 1)
-            return false;
+        org.apache.commons.cli.Options options = new org.apache.commons.cli.Options();
+        Option help = new Option("help", "print this message");
+        Option quiet = new Option("quiet", "be extra quiet");
+        Option debug = new Option("debug", "print debug information");
+        Option outputDir = OptionBuilder.withArgName("directory").isRequired()
+                .hasArg().withDescription("path to output dir").create('d');
+        Option appPath = OptionBuilder.withArgName("file").isRequired()
+                .hasArg().withDescription("path to target app").create("app");
+        Option forceAndroidJar = OptionBuilder.withArgName("file").isRequired()
+                .hasArg().withDescription("path to android.jar").create("sdk");
+        Option webDir = OptionBuilder.withArgName("directory")
+                .hasArg().withDescription("path to webpages").create("web");
+        Option outFormat = OptionBuilder.withArgName("jimple or dex")
+                .hasArg().withDescription("output format, default is dex").create('f');
+        options.addOption(help);
+        options.addOption(quiet);
+        options.addOption(debug);
+        options.addOption(outputDir);
+        options.addOption(appPath);
+        options.addOption(forceAndroidJar);
+        options.addOption(webDir);
+        options.addOption(outFormat);
 
-        for (i = 0; i < args.length; i += 2) {
-            String key = args[i];
-            String value = args[i+1];
-            switch (key) {
-                case "-d": Config.outputDirPath = value; break;
-                case "-app": Config.appFilePath = value; break;
-                case "-android-jars": Config.androidPlatformDir = value; break;
-                case "-force-android-jar": Config.forceAndroidJarPath = value; break;
-                case "-web": Config.webDirPath = value; break;
-                case "-f": Config.outputFormat = value; break;
-                default: return false;
+        CommandLineParser parser = new BasicParser();
+
+        try {
+            CommandLine cmd = parser.parse(options, args);
+            if (cmd.hasOption('d')) Config.outputDirPath = cmd.getOptionValue('d');
+            if (cmd.hasOption("app")) Config.appFilePath = cmd.getOptionValue("app");
+            if (cmd.hasOption("sdk"))
+                Config.forceAndroidJarPath = cmd.getOptionValue("sdk");
+            if (cmd.hasOption("web")) Config.webDirPath = cmd.getOptionValue("web");
+            if (cmd.hasOption('f')) Config.outputFormat = cmd.getOptionValue('f');
+            if (cmd.hasOption("debug")) Util.LOGGER.setLevel(Level.ALL);
+            if (cmd.hasOption("quiet")) Util.LOGGER.setLevel(Level.WARNING);
+            if (!("jimple".equals(Config.outputFormat) || "dex".equals(Config.outputFormat))) {
+                throw new ParseException("output format should be jimple or dex");
             }
-        }
-
-        if ("".equals(Config.androidPlatformDir) && "".equals(Config.forceAndroidJarPath)) {
-            return false;
-        }
-
-        if ("".equals(Config.appFilePath) || "".equals(Config.outputDirPath)) {
-            return false;
-        }
-
-        if (!("jimple".equals(Config.outputFormat) || "dex".equals(Config.outputFormat))) {
+        } catch (ParseException e) {
+            System.out.println(e.getMessage());
+            HelpFormatter formatter = new HelpFormatter();
+            formatter.printHelp("ant", options);
             return false;
         }
 

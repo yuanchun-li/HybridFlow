@@ -10,7 +10,6 @@ import soot.Scene;
 import soot.ValueBox;
 
 import java.io.PrintStream;
-import java.security.cert.PKIXRevocationChecker;
 import java.util.*;
 
 /*

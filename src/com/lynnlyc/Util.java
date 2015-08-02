@@ -110,18 +110,6 @@ public class Util {
         return sdf.format(date);
     }
 
-    public static void printUsage() {
-        String usage = "Usage: java Main [options]\n" +
-                "\t-app\tpath to the apk file\n" +
-                "\t-web\tpath to webpage folder\n" +
-                "\t-android-jars\tpath to sdk platforms\n" +
-                "\t-force-android-jar\tpath to android.jar\n" +
-                "\t-d\tpath to output\n" +
-                "\t-f\toutput format, jimple or dex, default is dex" +
-                "\texample: java Main -app XXX.apk -web path/to/webpage -android-jars path/to/sdk/platforms -d path/to/output\n";
-        System.out.println(usage);
-    }
-
     public static void output() {
         PackManager.v().writeOutput();
     }
