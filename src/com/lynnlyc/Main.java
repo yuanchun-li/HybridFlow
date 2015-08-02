@@ -16,18 +16,18 @@ public class Main {
         Config.init();
 
         AppManager appManager = new AppManager(Config.appFilePath);
-        appManager.dumpAllApplicationClasses(os);
+//      appManager.dumpAllApplicationClasses(os);
 
-		appManager.runPTA();
-        appManager.runJSA();
+//      appManager.runPTA();
+//      appManager.runJSA();
 
-//        JSA.dumpJSAresults(os);
+//      JSA.dumpJSAresults(os);
 
-        appManager.generateBridges();
+//      appManager.generateBridges();
 
-//        JSA.dumpJSAresults(os);
+//      SA.dumpJSAresults(os);
 ////        Util.output();
-        VirtualWebview.v().dump(Config.getBridgePs());
+//      VirtualWebview.v().dump(Config.getBridgePs());
 
 	}
 }
