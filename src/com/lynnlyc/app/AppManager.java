@@ -9,6 +9,7 @@ import soot.*;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.internal.ImmediateBox;
+import soot.jimple.toolkits.infoflow.InfoFlowAnalysis;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -156,6 +157,9 @@ public class AppManager {
 
         appEntryPoints = Util.findEntryPoints();
         Scene.v().setEntryPoints(appEntryPoints);
+
+        VirtualWebview.v().setWebviewClasses(webviewClasses);
+
         this.isPrepared = true;
     }
 
@@ -175,8 +179,6 @@ public class AppManager {
         }
 
         this.isPTAFinished = true;
-
-        return;
     }
 
     public void runJSA() {
@@ -341,4 +343,5 @@ public class AppManager {
             }
         }
     }
+
 }

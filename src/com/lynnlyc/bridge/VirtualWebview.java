@@ -1,6 +1,7 @@
 package com.lynnlyc.bridge;
 
 import com.lynnlyc.Util;
+import soot.SootClass;
 
 import java.io.PrintStream;
 import java.util.HashSet;
@@ -18,12 +19,15 @@ public class VirtualWebview {
         }
         return virtualWebview;
     }
+
+    private HashSet<SootClass> webviewClasses;
     private HashSet<JsInterfaceBridge> jsInterfaceBridges;
     private HashSet<JavascriptBridge> javascriptBridges;
     private HashSet<UrlBridge> urlBridges;
     private HashSet<EventBridge> eventBridges;
 
     private VirtualWebview() {
+        webviewClasses = new HashSet<SootClass>();
         jsInterfaceBridges = new HashSet<JsInterfaceBridge>();
         javascriptBridges = new HashSet<JavascriptBridge>();
         urlBridges = new HashSet<UrlBridge>();
@@ -32,6 +36,11 @@ public class VirtualWebview {
 
     public void dump(PrintStream os) {
         os.println("======Virtual Webview Bridges======");
+//        os.println("------    WebViewClasses     ------");
+//        for (SootClass sootClass : this.webviewClasses) {
+//            os.println(sootClass);
+//        }
+
         os.println("------   JsInterfaceBridges  ------");
         for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
             os.println(jsInterfaceBridge);
@@ -70,5 +79,9 @@ public class VirtualWebview {
         else {
             Util.LOGGER.log(Level.WARNING, "Unknown bridge type." + bridge);
         }
+    }
+
+    public void setWebviewClasses(HashSet<SootClass> webviewClasses) {
+        this.webviewClasses = webviewClasses;
     }
 }
