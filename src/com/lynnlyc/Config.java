@@ -28,8 +28,13 @@ import java.util.logging.SimpleFormatter;
  * Package: webview-flow
  */
 public class Config {
+    public final String projectName = "HybridFlow";
+
     // File path of apk
     public static String appFilePath = "";
+
+    // File path of source to sink definition
+    public static String source2SinkFilePath = "";
 
     // Directory path to find android.jar
     public static String androidPlatformDir = "";
@@ -37,11 +42,12 @@ public class Config {
     // File path of android.jar which is forced to use by soot
     public static String forceAndroidJarPath = "";
 
-    // Directory path of web pages
-    public static String webDirPath = "";
-
-    // A list of paths of web pages to analyse
-    public static HashSet<String> htmlFilePaths = new HashSet();
+    // Directory path of app html side
+    public static String htmlDirPath = "";
+    // Directory path of app java side
+    public static String javaDirPath = "";
+    // Directory path of bridges
+    public static String bridgeDirPath = "";
 
     // Directory for result output
     public static String outputDirPath = "";
@@ -89,6 +95,8 @@ public class Config {
                 .hasArg().withDescription("path to webpages").create("web");
         Option outFormat = OptionBuilder.withArgName("jimple or dex")
                 .hasArg().withDescription("output format, default is dex").create('f');
+        Option sourceToSinkOpt = OptionBuilder.withArgName("file").isRequired()
+                .hasArg().withDescription("definitions of sources and sinks").create("source2sink");
         options.addOption(help);
         options.addOption(quiet);
         options.addOption(debug);
@@ -97,6 +105,7 @@ public class Config {
         options.addOption(forceAndroidJar);
         options.addOption(webDir);
         options.addOption(outFormat);
+        options.addOption(sourceToSinkOpt);
 
         CommandLineParser parser = new BasicParser();
 
@@ -104,48 +113,34 @@ public class Config {
             CommandLine cmd = parser.parse(options, args);
             if (cmd.hasOption('d')) Config.outputDirPath = cmd.getOptionValue('d');
             if (cmd.hasOption("app")) Config.appFilePath = cmd.getOptionValue("app");
+            File appFile = new File(Config.appFilePath);
+            if (!appFile.exists()) {
+                throw new ParseException("invalid app file path");
+            }
             if (cmd.hasOption("sdk"))
                 Config.forceAndroidJarPath = cmd.getOptionValue("sdk");
-            if (cmd.hasOption("web")) Config.webDirPath = cmd.getOptionValue("web");
+            if (cmd.hasOption("web")) Config.htmlDirPath = cmd.getOptionValue("web");
             if (cmd.hasOption('f')) Config.outputFormat = cmd.getOptionValue('f');
             if (cmd.hasOption("debug")) Util.LOGGER.setLevel(Level.ALL);
             if (cmd.hasOption("quiet")) Util.LOGGER.setLevel(Level.WARNING);
             if (!("jimple".equals(Config.outputFormat) || "dex".equals(Config.outputFormat))) {
                 throw new ParseException("output format should be jimple or dex");
             }
+            if (cmd.hasOption("source2sink"))
+                Config.source2SinkFilePath = cmd.getOptionValue("source2sink");
         } catch (ParseException e) {
             System.out.println(e.getMessage());
             HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("ant", options);
+            formatter.printHelp("WebViewFlow", options);
             return false;
         }
 
-        File workingDir = new File(String.format("%s/webviewflow_%s/", Config.outputDirPath, Util.getTimeString()));
-        File appFile = new File(Config.appFilePath);
-        if (!appFile.exists()) {
-            System.out.println("invalid app file path");
-            return false;
-        }
-        Config.outputDirPath = workingDir.getPath();
-        if (!workingDir.exists()) workingDir.mkdirs();
-        logFile = new File(Config.outputDirPath + "/exception.log");
-        bridgeFile = new File(Config.outputDirPath + "/bridge.txt");
-        File normalLogFile = new File(Config.outputDirPath + "/analysis.log");
-
-        try {
-            bridgePs = new PrintStream(new FileOutputStream(bridgeFile));
-            logPs = new PrintStream(new FileOutputStream(logFile));
-            FileHandler fh = new FileHandler(normalLogFile.getAbsolutePath());
-            fh.setFormatter(new SimpleFormatter());
-            Util.LOGGER.addHandler(fh);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
         return true;
-    };
+    }
 
     public static void init() {
+        if (!setUpFileStructure())
+            return;
         Util.LOGGER.log(Level.INFO, "initializing...");
         Options.v().set_prepend_classpath(true);
         Options.v().set_allow_phantom_refs(true);
@@ -158,10 +153,6 @@ public class Config {
             Options.v().set_output_format(Options.output_format_jimple);
         }
         else if ("dex".equals(Config.outputFormat)) {
-            Options.v().set_output_format(Options.output_format_dex);
-        }
-        else {
-            Util.LOGGER.log(Level.WARNING, "unrecognized output format!");
             Options.v().set_output_format(Options.output_format_dex);
         }
 
@@ -191,5 +182,44 @@ public class Config {
             return System.out;
         }
         return logPs;
+    }
+
+    public static boolean setUpFileStructure() {
+        File workingDir = new File(String.format("%s/webviewflow_%s/", Config.outputDirPath, Util.getTimeString()));
+
+        Config.outputDirPath = workingDir.getPath();
+        if (!workingDir.exists() && !workingDir.mkdirs())
+            return false;
+
+        File javaDir = new File(Config.outputDirPath + "/java");
+        if (!javaDir.exists() && !javaDir.mkdir())
+            return false;
+        javaDirPath = javaDir.getPath();
+
+        File htmlDir = new File(Config.outputDirPath + "/html");
+        if (!htmlDir.exists() && !htmlDir.mkdir())
+            return false;
+        htmlDirPath = htmlDir.getPath();
+
+        File bridgeDir = new File(Config.outputDirPath + "/bridge");
+        if (!bridgeDir.exists() && !bridgeDir.mkdir())
+            return false;
+        bridgeDirPath = bridgeDir.getPath();
+
+        logFile = new File(Config.outputDirPath + "/exception.log");
+        bridgeFile = new File(Config.bridgeDirPath + "/bridge.txt");
+        File normalLogFile = new File(Config.outputDirPath + "/analysis.log");
+
+        try {
+            bridgePs = new PrintStream(new FileOutputStream(bridgeFile));
+            logPs = new PrintStream(new FileOutputStream(logFile));
+            FileHandler fh = new FileHandler(normalLogFile.getAbsolutePath());
+            fh.setFormatter(new SimpleFormatter());
+            Util.LOGGER.addHandler(fh);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
     }
 }
