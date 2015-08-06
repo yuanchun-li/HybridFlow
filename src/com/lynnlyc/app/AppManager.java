@@ -330,7 +330,10 @@ public class AppManager {
                                     possibleTypes.addAll(interfaceClass.possibleTypes());
                                 }
                                 for (Type possibleType : possibleTypes) {
-                                    VirtualWebview.v().addBridge(new JsInterfaceBridge(possibleType, interfaceNameStr, context));
+                                    if (!(possibleType instanceof RefType))
+                                        continue;
+                                    VirtualWebview.v().addBridge(new JsInterfaceBridge(
+                                            ((RefType) possibleType).getSootClass(), interfaceNameStr, context));
                                 }
                             }
                         }

@@ -10,6 +10,8 @@
 package com.lynnlyc;
 
 import org.apache.commons.cli.*;
+import org.apache.commons.io.FileUtils;
+import org.jf.util.StringUtils;
 import soot.options.Options;
 
 import java.io.File;
@@ -17,7 +19,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -28,13 +29,13 @@ import java.util.logging.SimpleFormatter;
  * Package: webview-flow
  */
 public class Config {
-    public final String projectName = "HybridFlow";
+    public static final String projectName = "HybridFlow";
 
     // File path of apk
     public static String appFilePath = "";
 
     // File path of source to sink definition
-    public static String source2SinkFilePath = "";
+    public static String sourceAndSinkFilePath = "";
 
     // Directory path to find android.jar
     public static String androidPlatformDir = "";
@@ -57,10 +58,7 @@ public class Config {
 
     public static boolean isInitialized = false;
 
-    // printer of output
-    private static File logFile;
     private static PrintStream logPs;
-    private static File bridgeFile;
     private static PrintStream bridgePs;
 
     // noticeable webview methods
@@ -96,7 +94,7 @@ public class Config {
         Option outFormat = OptionBuilder.withArgName("jimple or dex")
                 .hasArg().withDescription("output format, default is dex").create('f');
         Option sourceToSinkOpt = OptionBuilder.withArgName("file").isRequired()
-                .hasArg().withDescription("definitions of sources and sinks").create("source2sink");
+                .hasArg().withDescription("definitions of sources and sinks").create("source_sink");
         options.addOption(help);
         options.addOption(quiet);
         options.addOption(debug);
@@ -126,12 +124,12 @@ public class Config {
             if (!("jimple".equals(Config.outputFormat) || "dex".equals(Config.outputFormat))) {
                 throw new ParseException("output format should be jimple or dex");
             }
-            if (cmd.hasOption("source2sink"))
-                Config.source2SinkFilePath = cmd.getOptionValue("source2sink");
+            if (cmd.hasOption("source_sink"))
+                Config.sourceAndSinkFilePath = cmd.getOptionValue("source_sink");
         } catch (ParseException e) {
             System.out.println(e.getMessage());
             HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("WebViewFlow", options);
+            formatter.printHelp(Config.projectName, options);
             return false;
         }
 
@@ -141,6 +139,8 @@ public class Config {
     public static void init() {
         if (!setUpFileStructure())
             return;
+        readSourceAndSink();
+
         Util.LOGGER.log(Level.INFO, "initializing...");
         Options.v().set_prepend_classpath(true);
         Options.v().set_allow_phantom_refs(true);
@@ -184,8 +184,9 @@ public class Config {
         return logPs;
     }
 
-    public static boolean setUpFileStructure() {
-        File workingDir = new File(String.format("%s/webviewflow_%s/", Config.outputDirPath, Util.getTimeString()));
+    private static boolean setUpFileStructure() {
+        File workingDir = new File(String.format("%s/%s_%s/", Config.outputDirPath,
+                Config.projectName, Util.getTimeString()));
 
         Config.outputDirPath = workingDir.getPath();
         if (!workingDir.exists() && !workingDir.mkdirs())
@@ -206,8 +207,8 @@ public class Config {
             return false;
         bridgeDirPath = bridgeDir.getPath();
 
-        logFile = new File(Config.outputDirPath + "/exception.log");
-        bridgeFile = new File(Config.bridgeDirPath + "/bridge.txt");
+        File logFile = new File(Config.outputDirPath + "/exception.log");
+        File bridgeFile = new File(Config.bridgeDirPath + "/bridge.txt");
         File normalLogFile = new File(Config.outputDirPath + "/analysis.log");
 
         try {
@@ -221,5 +222,28 @@ public class Config {
             return false;
         }
         return true;
+    }
+
+    public static ArrayList<String> javaSourceAndSinks = new ArrayList<>();
+    public static ArrayList<String> htmlSourceAndSinks = new ArrayList<>();
+    private static void readSourceAndSink() {
+        File sourceAndSinkFile = new File(Config.sourceAndSinkFilePath);
+        try {
+            List<String> lines = FileUtils.readLines(sourceAndSinkFile);
+            for (String line : lines) {
+                line = line.trim();
+                if (line.length() == 0 || line.startsWith("#") || line.startsWith("%")) {
+                    continue;
+                }
+                if (line.startsWith("HTML")) {
+                    htmlSourceAndSinks.add(line);
+                }
+                else {
+                    javaSourceAndSinks.add(line);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

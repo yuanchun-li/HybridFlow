@@ -8,7 +8,7 @@ import soot.SootMethod;
  */
 public class EventBridge extends Bridge {
     private String eventType;
-    private SootMethod eventTarget;
+    public SootMethod eventTarget;
 
     public EventBridge(String eventType, SootMethod eventTarget) {
         this.eventType = eventType;

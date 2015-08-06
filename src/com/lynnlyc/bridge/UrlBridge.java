@@ -5,7 +5,7 @@ package com.lynnlyc.bridge;
  * Package: webview-flow
  */
 public class UrlBridge extends Bridge {
-    private BridgeContext context;
+    public BridgeContext context;
     private String url;
     public UrlBridge(BridgeContext context, String url) {
         this.context = context;

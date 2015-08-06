@@ -21,11 +21,11 @@ public class Main {
         appManager.runPTA();
         appManager.runJSA();
 
-        JSA.dumpJSAresults(os);
+//        JSA.dumpJSAresults(os);
 
         appManager.generateBridges();
 
-        JSA.dumpJSAresults(os);
+//        JSA.dumpJSAresults(os);
         //        Util.output();
         VirtualWebview.v().dump(Config.getBridgePs());
 

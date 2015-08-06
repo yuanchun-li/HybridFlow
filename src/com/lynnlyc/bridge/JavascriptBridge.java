@@ -5,7 +5,7 @@ package com.lynnlyc.bridge;
  * Package: webview-flow
  */
 public class JavascriptBridge extends Bridge {
-    private BridgeContext context;
+    public BridgeContext context;
     private String script;
     public JavascriptBridge(BridgeContext context, String script) {
         this.context = context;
