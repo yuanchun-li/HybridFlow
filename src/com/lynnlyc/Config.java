@@ -11,7 +11,6 @@ package com.lynnlyc;
 
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FileUtils;
-import org.jf.util.StringUtils;
 import soot.options.Options;
 
 import java.io.File;
@@ -19,6 +18,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -146,8 +146,9 @@ public class Config {
         Options.v().set_allow_phantom_refs(true);
         Options.v().set_whole_program(true);
         Options.v().set_src_prec(Options.src_prec_apk);
-        Options.v().set_output_dir(Config.outputDirPath);
-        Options.v().set_debug(false);
+        Options.v().set_output_dir(Config.javaDirPath);
+        Options.v().set_debug(true);
+        Options.v().set_validate(true);
 
         if ("jimple".equals(Config.outputFormat)) {
             Options.v().set_output_format(Options.output_format_jimple);
@@ -224,8 +225,8 @@ public class Config {
         return true;
     }
 
-    public static ArrayList<String> javaSourceAndSinks = new ArrayList<>();
-    public static ArrayList<String> htmlSourceAndSinks = new ArrayList<>();
+    public static HashSet<String> javaSourcesAndSinks = new HashSet<>();
+    public static HashSet<String> htmlSourcesAndSinks = new HashSet<>();
     private static void readSourceAndSink() {
         File sourceAndSinkFile = new File(Config.sourceAndSinkFilePath);
         try {
@@ -236,10 +237,10 @@ public class Config {
                     continue;
                 }
                 if (line.startsWith("HTML")) {
-                    htmlSourceAndSinks.add(line);
+                    htmlSourcesAndSinks.add(line);
                 }
                 else {
-                    javaSourceAndSinks.add(line);
+                    javaSourcesAndSinks.add(line);
                 }
             }
         } catch (IOException e) {

@@ -23,10 +23,7 @@ import java.util.logging.Level;
  * Package: webview-flow
  */
 public class AppManager {
-    public String appFilePath;
     private boolean isPrepared = false;
-    private boolean isPTAFinished = false;
-    private boolean isJSAFinished = false;
     private PointsToAnalysis pta = null;
     private StringAnalysis jsa = null;
 
@@ -36,10 +33,18 @@ public class AppManager {
     private SootMethod loadUrlMethod = null;
     private SootMethod addJavascriptInterfaceMethod = null;
 
-    private HashSet<SootClass> webviewClasses = new HashSet<SootClass>();
+    private HashSet<SootClass> webviewClasses = new HashSet<>();
+    public List<SootClass> originApplicationClasses = new ArrayList<>();
 
-    public AppManager(String appFilePath) {
-        this.appFilePath = appFilePath;
+    public static AppManager v() {
+        if (appManager == null) {
+            appManager = new AppManager();
+        }
+        return appManager;
+    }
+
+    private static AppManager appManager = null;
+    private AppManager() {
         this.prepare();
     }
 
@@ -53,6 +58,10 @@ public class AppManager {
             return;
         }
         Scene.v().loadNecessaryClasses();
+
+        for (SootClass cls : Scene.v().getApplicationClasses()) {
+            originApplicationClasses.add(cls);
+        }
 
         try {
             WebViewClass = Scene.v().getSootClass("android.webkit.WebView");
@@ -100,7 +109,6 @@ public class AppManager {
         for(SootClass cls : androidLibClasses) {
             cls.setLibraryClass();
         }
-
 
         // filter all webview related classes
         webviewClasses = new HashSet<SootClass>();
@@ -165,7 +173,7 @@ public class AppManager {
 
     public void runPTA() {
         if (!this.isPrepared) {
-            Util.LOGGER.warning("App not perpared " + this.appFilePath);
+            Util.LOGGER.warning("App not perpared");
             return;
         }
         Util.LOGGER.info("running PTA of app");
@@ -177,13 +185,11 @@ public class AppManager {
             Util.LOGGER.warning("Spark PTA failed");
             Util.logException(e);
         }
-
-        this.isPTAFinished = true;
     }
 
     public void runJSA() {
         if (!this.isPrepared) {
-            Util.LOGGER.log(Level.WARNING, "App not perpared " + this.appFilePath);
+            Util.LOGGER.log(Level.WARNING, "App not perpared");
             return;
         }
         Util.LOGGER.info("running JSA of app");
@@ -233,7 +239,6 @@ public class AppManager {
         catch (Exception e) {
             Util.LOGGER.warning("JSA failed");
         }
-        this.isJSAFinished = true;
     }
 
     public void dumpAllApplicationClasses(PrintStream os) {
@@ -274,7 +279,7 @@ public class AppManager {
 
             for (SootMethod m : cls.getMethods()) {
                 if (!m.isConcrete()) continue;
-                Body b = null;
+                Body b;
                 if (m.hasActiveBody()) b = m.getActiveBody();
                 else {
                     try {
@@ -294,6 +299,7 @@ public class AppManager {
                             InvokeExpr expr = stmt.getInvokeExpr();
                             SootMethod tgt = expr.getMethod();
                             if (Util.isSimilarMethod(tgt, loadUrlMethod)) {
+                                VirtualWebview.v().loadUrlMethods.add(m);
                                 ValueBox urlValue = expr.getArgBox(0);
                                 String urlStr = null;
                                 if (this.jsa != null) {
@@ -301,7 +307,7 @@ public class AppManager {
                                     urlStr = urlAutomaton.getShortestExample(true);
                                 }
                                 if (urlStr == null) {
-                                    urlStr = urlValue.toString();
+                                    urlStr = urlValue.getValue().toString();
                                 }
                                 if (urlStr.contains("javascript:")) {
                                     VirtualWebview.v().addBridge(new JavascriptBridge(context, urlStr));
@@ -345,6 +351,13 @@ public class AppManager {
                 }
             }
         }
+    }
+
+    public void outputInstrumentedApp() {
+        for (SootClass cls : originApplicationClasses) {
+            cls.setApplicationClass();
+        }
+        PackManager.v().writeOutput();
     }
 
 }

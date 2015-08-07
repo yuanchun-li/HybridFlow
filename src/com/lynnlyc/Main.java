@@ -2,7 +2,6 @@ package com.lynnlyc;
 import java.io.PrintStream;
 
 import com.lynnlyc.app.AppManager;
-import com.lynnlyc.app.JSA;
 import com.lynnlyc.bridge.VirtualWebview;
 
 public class Main {
@@ -15,19 +14,20 @@ public class Main {
 
         Config.init();
 
-        AppManager appManager = new AppManager(Config.appFilePath);
+        AppManager appManager = AppManager.v();
 //      appManager.dumpAllApplicationClasses(os);
 
         appManager.runPTA();
-        appManager.runJSA();
+//        appManager.runJSA();
 
 //        JSA.dumpJSAresults(os);
 
         appManager.generateBridges();
-
 //        JSA.dumpJSAresults(os);
         //        Util.output();
         VirtualWebview.v().dump(Config.getBridgePs());
+        VirtualWebview.v().instrumentBridgeToApp();
 
+        VirtualWebview.v().dumpJavaSideResult();
 	}
 }

@@ -2,13 +2,14 @@ package com.lynnlyc.bridge;
 
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
+import com.lynnlyc.app.AppManager;
+import org.apache.commons.io.FileUtils;
 import soot.*;
-import soot.jimple.InvokeExpr;
-import soot.jimple.InvokeStmt;
 import soot.jimple.Jimple;
 import soot.jimple.JimpleBody;
-import soot.jimple.internal.*;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,17 +30,19 @@ public class VirtualWebview {
     }
 
     private HashSet<SootClass> webviewClasses;
+    public HashSet<SootMethod> loadUrlMethods;
     private HashSet<JsInterfaceBridge> jsInterfaceBridges;
     private HashSet<JavascriptBridge> javascriptBridges;
     private HashSet<UrlBridge> urlBridges;
     private HashSet<EventBridge> eventBridges;
 
     private VirtualWebview() {
-        webviewClasses = new HashSet<SootClass>();
-        jsInterfaceBridges = new HashSet<JsInterfaceBridge>();
-        javascriptBridges = new HashSet<JavascriptBridge>();
-        urlBridges = new HashSet<UrlBridge>();
-        eventBridges = new HashSet<EventBridge>();
+        webviewClasses = new HashSet<>();
+        loadUrlMethods = new HashSet<>();
+        jsInterfaceBridges = new HashSet<>();
+        javascriptBridges = new HashSet<>();
+        urlBridges = new HashSet<>();
+        eventBridges = new HashSet<>();
     }
 
     public void dump(PrintStream os) {
@@ -72,11 +75,11 @@ public class VirtualWebview {
     }
 
     // set parameters of a method as sources
-    private void setSourceMethod(SootMethod method) {
+    private void setJavaSourceMethod(SootMethod method) {
         List<Type> para_types = method.getParameterTypes();
         List<Value> paras = new ArrayList<>();
         for (Type t : para_types) {
-            paras.add(getTaintedValue(t));
+            paras.add(getTaintedLocal(t));
         }
 
         if (method.isStatic()) {
@@ -84,49 +87,53 @@ public class VirtualWebview {
                     Jimple.v().newStaticInvokeExpr(method.makeRef(), paras)));
         }
         else {
-            Value base = getTaintedValue(method.getDeclaringClass().getType());
-            Local baseLocal = getNewLocal(base);
+            Local base = getTaintedLocal(method.getDeclaringClass().getType());
             mockMainBody.getUnits().addLast(Jimple.v().newInvokeStmt(
-                    Jimple.v().newVirtualInvokeExpr(baseLocal, method.makeRef(), paras)));
+                    Jimple.v().newVirtualInvokeExpr(base, method.makeRef(), paras)));
         }
 
+    }
+
+    private void setJavaSinkMethod(SootMethod method) {
+        String line = String.format("%s -> _SINK__", method.getSignature());
+        Config.javaSourcesAndSinks.add(line);
     }
 
     private SootClass webViewBridgeClass;
     private SootMethod mockMain;
     private JimpleBody mockMainBody;
     private SootMethod mockSource;
+    private JimpleBody mockSourceBody;
+    private SootClass objectClass;
+    private Local taintedObject;
 
     private static int localCount = 0;
-    private Local getNewLocal(Value rvalue) {
+    private Local getNewLocal(Type t) {
         String localName = "local_" + localCount++;
-        JimpleLocal local = new JimpleLocal(localName, rvalue.getType());
+        Local local = Jimple.v().newLocal(localName, t);
         mockMainBody.getLocals().addLast(local);
-        mockMainBody.getUnits().addLast(Jimple.v().newAssignStmt(local, rvalue));
         return local;
     }
 
-    private Value getTaintedValue(Type t) {
-        List<Value> sourcePara = new ArrayList<>();
-        JStaticInvokeExpr sourceExpr = new JStaticInvokeExpr(mockSource.makeRef(), sourcePara);
-        return new JCastExpr(sourceExpr, t);
+    private Local getTaintedLocal(Type t) {
+        Local castedTaint = getNewLocal(t);
+
+        mockMainBody.getUnits().addLast(
+                Jimple.v().newAssignStmt(castedTaint,
+                        Jimple.v().newCastExpr(taintedObject, t)));
+
+        return castedTaint;
     }
 
-    public void addBridgeToApp() {
-//        File hybridAppFile = new File(Config.appFilePath);
-//        File javaAppFile = new File(Config.javaDirPath + "/javaSide.apk");
-//        try {
-//            FileUtils.copyFile(hybridAppFile, javaAppFile);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+    public void instrumentBridgeToApp() {
+        Scene.v().loadClassAndSupport("java.lang.Object");
+        objectClass = Scene.v().getSootClass("java.lang.Object");
 
         webViewBridgeClass = new SootClass(Config.projectName, Modifier.PUBLIC);
-        webViewBridgeClass.setSuperclass(Scene.v().getSootClass("java.lang.Object"));
-        ArrayList<Type> paras = new ArrayList<>();
+        webViewBridgeClass.setSuperclass(objectClass);
+        List<Type> paras = new ArrayList<>();
         mockMain = new SootMethod("main", paras, VoidType.v(),
                 Modifier.PUBLIC | Modifier.STATIC);
-        SootClass objectClass = Scene.v().getSootClass("java.lang.Object");
         mockSource = new SootMethod("mockSource", paras, objectClass.getType(),
                 Modifier.PUBLIC | Modifier.STATIC);
         webViewBridgeClass.addMethod(mockMain);
@@ -135,31 +142,65 @@ public class VirtualWebview {
         mockMainBody = Jimple.v().newBody(mockMain);
         mockMain.setActiveBody(mockMainBody);
 
+        mockSourceBody = Jimple.v().newBody(mockSource);
+        mockSource.setActiveBody(mockSourceBody);
+
+        taintedObject = getNewLocal(objectClass.getType());
+        mockMainBody.getUnits().addLast(
+                Jimple.v().newAssignStmt(taintedObject,
+                        Jimple.v().newStaticInvokeExpr(
+                                mockSource.makeRef(), new ArrayList<Value>())));
+
+        String line = String.format("%s -> _SOURCE__", mockSource.getSignature());
+        Config.javaSourcesAndSinks.add(line);
+
         for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
             for (SootMethod m : jsInterfaceBridge.interfaceClass.getMethods()) {
                 if (!m.isPublic() || m.isConstructor() || m.isAbstract())
                     continue;
-                String line = String.format("%s -> _SOURCE__", m.getSignature());
-                Config.javaSourceAndSinks.add(line);
+                setJavaSourceMethod(m);
             }
         }
 
         for (EventBridge eventBridge : eventBridges) {
             SootMethod target = eventBridge.eventTarget;
+            setJavaSourceMethod(target);
         }
 
         for (JavascriptBridge javascriptBridge : javascriptBridges) {
             SootMethod invokedMethod = javascriptBridge.context.getInvokedMethod();
             if (invokedMethod == null) continue;
-            String line = String.format("%s -> _SINK__", invokedMethod.getSignature());
-            Config.javaSourceAndSinks.add(line);
+            setJavaSinkMethod(invokedMethod);
         }
 
         for (UrlBridge urlBridge : urlBridges) {
             SootMethod invokedMethod = urlBridge.context.getInvokedMethod();
             if (invokedMethod == null) continue;
-            String line = String.format("%s -> _SINK__", invokedMethod.getSignature());
-            Config.javaSourceAndSinks.add(line);
+            setJavaSinkMethod(invokedMethod);
+        }
+
+        // add invocation of mockMain to app, so that other java-side analysis can reach mockMain
+        for (SootMethod m : loadUrlMethods)
+            this.addMockMainToMethod(m);
+
+        Scene.v().addClass(webViewBridgeClass);
+        webViewBridgeClass.setApplicationClass();
+    }
+
+    private void addMockMainToMethod(SootMethod m) {
+        if (!m.hasActiveBody()) return;
+        Body b = m.getActiveBody();
+        b.getUnits().addFirst(Jimple.v().newInvokeStmt(
+                Jimple.v().newStaticInvokeExpr(mockMain.makeRef())));
+    }
+
+    public void dumpJavaSideResult() {
+        AppManager.v().outputInstrumentedApp();
+        File javaSourceAndSink = new File(Config.javaDirPath + "/SourcesAndSinks.txt");
+        try {
+            FileUtils.writeLines(javaSourceAndSink, Config.javaSourcesAndSinks);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
