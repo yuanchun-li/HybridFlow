@@ -6,7 +6,7 @@ package com.lynnlyc.bridge;
  */
 public class UrlBridge extends Bridge {
     public BridgeContext context;
-    private String url;
+    public String url;
     public UrlBridge(BridgeContext context, String url) {
         this.context = context;
         this.url = url;

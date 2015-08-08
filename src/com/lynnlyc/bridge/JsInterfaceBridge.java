@@ -8,7 +8,7 @@ import soot.SootClass;
  */
 public class JsInterfaceBridge extends Bridge {
     public SootClass interfaceClass;
-    private String interfaceName;
+    public String interfaceName;
     private BridgeContext context;
     public JsInterfaceBridge(SootClass interfaceClass, String interfaceName, BridgeContext context) {
         this.interfaceClass = interfaceClass;

@@ -323,7 +323,7 @@ public class AppManager {
                                     interfaceNameStr = interfaceNameAutomaton.getShortestExample(true);
                                 }
                                 if (interfaceNameStr == null)
-                                    interfaceNameStr = interfaceNameValue.toString();
+                                    interfaceNameStr = interfaceNameValue.getValue().toString();
 
                                 Value interfaceObj = expr.getArg(0);
                                 HashSet<Type> possibleTypes = new HashSet<Type>();
@@ -357,7 +357,12 @@ public class AppManager {
         for (SootClass cls : originApplicationClasses) {
             cls.setApplicationClass();
         }
-        PackManager.v().writeOutput();
+        try {
+            PackManager.v().writeOutput();
+        }
+        catch (Exception e) {
+            Util.LOGGER.warning("exception during outputing");
+            e.printStackTrace();
+        }
     }
-
 }

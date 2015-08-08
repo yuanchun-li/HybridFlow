@@ -11,6 +11,8 @@ import soot.jimple.JimpleBody;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -199,6 +201,63 @@ public class VirtualWebview {
         File javaSourceAndSink = new File(Config.javaDirPath + "/SourcesAndSinks.txt");
         try {
             FileUtils.writeLines(javaSourceAndSink, Config.javaSourcesAndSinks);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private HashSet<String> possibleURLs = new HashSet<>();
+    private void addPossibleURL(String url_str) {
+        try {
+            URL url = new URL(url_str);
+            possibleURLs.add(url.toString());
+        } catch (MalformedURLException e) {
+            Util.LOGGER.warning("incorrect URL: " + url_str);
+        }
+    }
+
+    private void addHTMLsource(String source) {
+        String line = String.format("HTML <%s> -> _SOURCE_", source);
+        Config.htmlSourcesAndSinks.add(line);
+    }
+
+    private void addHTMLsink(String sink) {
+        String line = String.format("HTML <%s> -> _SINK_", sink);
+        Config.htmlSourcesAndSinks.add(line);
+    }
+
+    public void generateHTMLSideResult() {
+        for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
+            for (SootMethod m : jsInterfaceBridge.interfaceClass.getMethods()) {
+                if (!m.isPublic() || m.isConstructor() || m.isAbstract())
+                    continue;
+                this.addHTMLsink(String.format("ARGS %s.%s",
+                        jsInterfaceBridge.interfaceName, m.getName()));
+                this.addHTMLsource(String.format("RET %s.%s",
+                        jsInterfaceBridge.interfaceName, m.getName()));
+            }
+        }
+
+        for (EventBridge eventBridge : eventBridges) {
+            this.addHTMLsink(String.format("ARGS window.%s", eventBridge.eventType));
+        }
+
+        for (JavascriptBridge javascriptBridge : javascriptBridges) {
+            // TODO mark the js methods used in the script as source
+
+        }
+
+        for (UrlBridge urlBridge : urlBridges) {
+            this.addPossibleURL(urlBridge.url);
+        }
+    }
+
+    public void dumpHTMLSideResult() {
+        File possibleURLsFile = new File(Config.htmlDirPath + "/possibleURLs.txt");
+        File htmlSourceAndSink = new File(Config.htmlDirPath + "/SourcesAndSinks.txt");
+        try {
+            FileUtils.writeLines(possibleURLsFile, possibleURLs);
+            FileUtils.writeLines(htmlSourceAndSink, Config.htmlSourcesAndSinks);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -78,9 +78,11 @@ public class Config {
         "onClick",
     };
 
+    public static boolean runJSA = false;
+    public static boolean runPTA = true;
+
     public static boolean parseArgs(String[] args) {
         org.apache.commons.cli.Options options = new org.apache.commons.cli.Options();
-        Option help = new Option("help", "print this message");
         Option quiet = new Option("quiet", "be extra quiet");
         Option debug = new Option("debug", "print debug information");
         Option outputDir = OptionBuilder.withArgName("directory").isRequired()
@@ -95,7 +97,10 @@ public class Config {
                 .hasArg().withDescription("output format, default is dex").create('f');
         Option sourceToSinkOpt = OptionBuilder.withArgName("file").isRequired()
                 .hasArg().withDescription("definitions of sources and sinks").create("source_sink");
-        options.addOption(help);
+        Option jsaOpt = OptionBuilder.withArgName("true or false").hasArg()
+                .withDescription("run string analysis (default is false)").create("jsa");
+        Option ptaOpt = OptionBuilder.withArgName("true or false").hasArg()
+                .withDescription("run point-to analysis (default is true)").create("pta");
         options.addOption(quiet);
         options.addOption(debug);
         options.addOption(outputDir);
@@ -104,6 +109,8 @@ public class Config {
         options.addOption(webDir);
         options.addOption(outFormat);
         options.addOption(sourceToSinkOpt);
+        options.addOption(jsaOpt);
+        options.addOption(ptaOpt);
 
         CommandLineParser parser = new BasicParser();
 
@@ -126,6 +133,18 @@ public class Config {
             }
             if (cmd.hasOption("source_sink"))
                 Config.sourceAndSinkFilePath = cmd.getOptionValue("source_sink");
+            if (cmd.hasOption("jsa")) {
+                String opt = cmd.getOptionValue("jsa");
+                if ("true".equals(opt)) Config.runJSA = true;
+                else if ("false".equals(opt)) Config.runJSA = false;
+                else throw new ParseException("jsa option should be true or false");
+            }
+            if (cmd.hasOption("pta")) {
+                String opt = cmd.getOptionValue("pta");
+                if ("true".equals(opt)) Config.runPTA = true;
+                else if ("false".equals(opt)) Config.runPTA = false;
+                else throw new ParseException("pta option should be true or false");
+            }
         } catch (ParseException e) {
             System.out.println(e.getMessage());
             HelpFormatter formatter = new HelpFormatter();

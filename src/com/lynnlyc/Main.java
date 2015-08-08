@@ -15,16 +15,14 @@ public class Main {
         Config.init();
 
         AppManager appManager = AppManager.v();
-//      appManager.dumpAllApplicationClasses(os);
 
-        appManager.runPTA();
-//        appManager.runJSA();
-
-//        JSA.dumpJSAresults(os);
+        if (Config.runPTA)
+            appManager.runPTA();
+        if (Config.runJSA)
+            appManager.runJSA();
 
         appManager.generateBridges();
-//        JSA.dumpJSAresults(os);
-        //        Util.output();
+
         VirtualWebview.v().dump(Config.getBridgePs());
         VirtualWebview.v().instrumentBridgeToApp();
 

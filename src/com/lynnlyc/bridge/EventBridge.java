@@ -7,7 +7,7 @@ import soot.SootMethod;
  * Package: webview-flow
  */
 public class EventBridge extends Bridge {
-    private String eventType;
+    public String eventType;
     public SootMethod eventTarget;
 
     public EventBridge(String eventType, SootMethod eventTarget) {
