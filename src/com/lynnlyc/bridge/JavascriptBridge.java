@@ -12,27 +12,15 @@ import java.io.IOException;
 public class JavascriptBridge extends Bridge {
     public BridgeContext context;
     public String script;
+    public int js_id;
+    private static int js_count = 0;
     public JavascriptBridge(BridgeContext context, String script) {
         this.context = context;
         this.script = script;
-        this.jsTempFile = null;
+        this.js_id = js_count++;
     }
     public String toString() {
-        return String.format("JavascriptBridge:\n[context]%s,\n[script]%s\n", this.context, this.script);
-    }
-
-    public File jsTempFile;
-    private static int js_id = 0;
-    public File getTempFile() {
-        if (jsTempFile == null) {
-            String jsTempFileName = String.format("javascriptBridge_%d.js", js_id);
-            jsTempFile = new File(jsTempFileName);
-            try {
-                FileUtils.write(jsTempFile, script);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return jsTempFile;
+        return String.format("JavascriptBridge:\n[id]%d,\n[context]%s,\n[script]%s\n",
+                this.js_id, this.context, this.script);
     }
 }

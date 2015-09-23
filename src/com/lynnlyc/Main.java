@@ -25,7 +25,9 @@ public class Main {
 
         VirtualWebview.v().dump(Config.getBridgePs());
         VirtualWebview.v().instrumentBridgeToApp();
+        VirtualWebview.v().generateHTMLSideResult();
 
         VirtualWebview.v().dumpJavaSideResult();
+        VirtualWebview.v().dumpHTMLSideResult();
 	}
 }

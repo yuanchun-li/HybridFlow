@@ -8,8 +8,6 @@ import dk.brics.string.StringAnalysis;
 import soot.*;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
-import soot.jimple.internal.ImmediateBox;
-import soot.jimple.toolkits.infoflow.InfoFlowAnalysis;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -126,7 +124,7 @@ public class AppManager {
             while(mi.hasNext()) {
                 SootMethod sm = (SootMethod) mi.next();
                 if (sm.isConcrete()) {
-                    Body body = null;
+                    Body body;
                     try {
                         body = sm.retrieveActiveBody();
                     }
@@ -308,6 +306,7 @@ public class AppManager {
                                 }
                                 if (urlStr == null) {
                                     urlStr = urlValue.getValue().toString();
+                                    urlStr = Util.trimQuotation(urlStr);
                                 }
                                 if (urlStr.contains("javascript:")) {
                                     VirtualWebview.v().addBridge(new JavascriptBridge(context, urlStr));
@@ -322,8 +321,10 @@ public class AppManager {
                                     Automaton interfaceNameAutomaton = this.jsa.getAutomaton(interfaceNameValue);
                                     interfaceNameStr = interfaceNameAutomaton.getShortestExample(true);
                                 }
-                                if (interfaceNameStr == null)
+                                if (interfaceNameStr == null) {
                                     interfaceNameStr = interfaceNameValue.getValue().toString();
+                                    interfaceNameStr = Util.trimQuotation(interfaceNameStr);
+                                }
 
                                 Value interfaceObj = expr.getArg(0);
                                 HashSet<Type> possibleTypes = new HashSet<Type>();

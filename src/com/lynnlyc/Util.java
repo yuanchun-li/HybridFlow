@@ -143,9 +143,23 @@ public class Util {
 		if (m1 == m2) {
 			return true;
 		}
-		if ((m1.getSubSignature() == m2.getSubSignature()) && Util.isSimilarClass(m1.getDeclaringClass(), m2.getDeclaringClass())) {
+		if ((m1.getSubSignature().equals(m2.getSubSignature())) && Util.isSimilarClass(m1.getDeclaringClass(), m2.getDeclaringClass())) {
 			return true;
 		}
 		return false;
+	}
+
+	public static String trimQuotation(String value) {
+		int len = value.length();
+		int st = 0;
+		char[] val = value.toCharArray();    /* avoid getfield opcode */
+
+		while ((st < len) && (val[st] <= ' ' || val[st] == '"')) {
+			st++;
+		}
+		while ((st < len) && (val[len - 1] <= ' ' || val[len - 1] == '"')) {
+			len--;
+		}
+		return ((st > 0) || (len < value.length())) ? value.substring(st, len) : value;
 	}
 }

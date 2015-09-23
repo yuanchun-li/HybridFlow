@@ -244,7 +244,7 @@ public class VirtualWebview {
 
         for (JavascriptBridge javascriptBridge : javascriptBridges) {
             // TODO mark the js methods used in the script as source
-
+            // javascriptBridge.getTempFile();
         }
 
         for (UrlBridge urlBridge : urlBridges) {
@@ -258,6 +258,22 @@ public class VirtualWebview {
         try {
             FileUtils.writeLines(possibleURLsFile, possibleURLs);
             FileUtils.writeLines(htmlSourceAndSink, Config.htmlSourcesAndSinks);
+            for (JavascriptBridge javascriptBridge : javascriptBridges) {
+                String script_file_name = String.format("%s/taintjs_%d.js",
+                        Config.htmlDirPath, javascriptBridge.js_id);
+                String script = javascriptBridge.script;
+                FileUtils.write(new File(script_file_name), script);
+            }
+            for (UrlBridge urlBridge : urlBridges) {
+                try {
+                    String url_file_name = String.format("%s/url_page_%d.html",
+                            Config.htmlDirPath, urlBridge.url_id);
+                    URL url = new URL(urlBridge.url);
+                    FileUtils.copyURLToFile(url, new File(url_file_name));
+                } catch (MalformedURLException e) {
+                    Util.LOGGER.warning("malformed url: " + urlBridge.url);
+                }
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
