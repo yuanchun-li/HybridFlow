@@ -1,6 +1,7 @@
 package com.lynnlyc.bridge;
 
 import com.lynnlyc.Config;
+import com.lynnlyc.web.WebManager;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -37,7 +38,9 @@ public class JavascriptBridge extends Bridge {
                 Config.htmlDirPath, this.js_id);
         String script = this.script;
         try {
-            FileUtils.write(new File(script_file_name), script);
+            File script_file = new File(script_file_name);
+            FileUtils.write(script_file, script);
+            WebManager.v().addTaintJsFile(script_file);
         } catch (IOException e) {
             e.printStackTrace();
         }

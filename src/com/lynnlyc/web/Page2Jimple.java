@@ -32,7 +32,7 @@ import com.lynnlyc.bridge.WALA2Soot;
 
 /*
  * convert web page to Jimple
- * using wala js front-end
+ * using wala js
  */
 public class Page2Jimple {
 	public static PropagationCallGraphBuilder page2CGbuilder(URL url)

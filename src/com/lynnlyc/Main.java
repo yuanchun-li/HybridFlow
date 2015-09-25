@@ -3,6 +3,7 @@ import java.io.PrintStream;
 
 import com.lynnlyc.app.AppManager;
 import com.lynnlyc.bridge.VirtualWebview;
+import com.lynnlyc.web.WebManager;
 import soot.G;
 import soot.PackManager;
 import soot.Singletons;
@@ -33,5 +34,7 @@ public class Main {
         VirtualWebview.v().dump(Config.getBridgePs());
         VirtualWebview.v().generateJavaSideResult();
         VirtualWebview.v().generateHTMLSideResult();
+
+        WebManager.v().runTaintAnalysis();
 	}
 }

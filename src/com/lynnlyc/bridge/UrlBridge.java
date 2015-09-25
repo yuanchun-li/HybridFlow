@@ -2,6 +2,7 @@ package com.lynnlyc.bridge;
 
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
+import com.lynnlyc.web.WebManager;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -41,7 +42,9 @@ public class UrlBridge extends Bridge {
             String url_file_name = String.format("%s/url_page_%d.html",
                     Config.htmlDirPath, this.url_id);
             URL url = new URL(this.url);
-            FileUtils.copyURLToFile(url, new File(url_file_name));
+            File url_file = new File(url_file_name);
+            FileUtils.copyURLToFile(url, url_file);
+            WebManager.v().addHtmlFile(url_file);
         } catch (MalformedURLException e) {
             Util.LOGGER.warning("malformed url: " + this.url);
         } catch (UnknownHostException e) {
