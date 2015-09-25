@@ -23,16 +23,19 @@ import java.util.logging.Level;
 public class AppManager {
     private boolean isPrepared = false;
     private PointsToAnalysis pta = null;
-    private StringAnalysis jsa = null;
+    private JSA jsa = null;
 
     private SootClass WebViewClass = null;
     private SootClass WebChromeClientClass = null;
     private SootClass WebViewClientClass = null;
+
     private SootMethod loadUrlMethod = null;
     private SootMethod addJavascriptInterfaceMethod = null;
+    private SootMethod setWebViewClientMethod = null;
+    private SootMethod setWebChromeClientMethod = null;
 
-    private HashSet<SootClass> webviewClasses = new HashSet<>();
-    public List<SootClass> originApplicationClasses = new ArrayList<>();
+    private HashSet<SootClass> webviewClasses;
+    public List<SootClass> originApplicationClasses;
 
     public static AppManager v() {
         if (appManager == null) {
@@ -49,18 +52,20 @@ public class AppManager {
     // entry points of soot-based app analysis
     public List<SootMethod> appEntryPoints = new ArrayList<SootMethod>();
 
-    private void prepare() {
+    public void prepare() {
         Util.LOGGER.info("preparing app analysis");
+
         if (!Config.isInitialized) {
             Util.LOGGER.warning("Configuration not initialized");
             return;
         }
+
         Scene.v().loadNecessaryClasses();
 
+        originApplicationClasses = new ArrayList<>();
         for (SootClass cls : Scene.v().getApplicationClasses()) {
             originApplicationClasses.add(cls);
         }
-
         try {
             WebViewClass = Scene.v().getSootClass("android.webkit.WebView");
         } catch (Exception e) {
@@ -91,8 +96,21 @@ public class AppManager {
             Util.LOGGER.warning("Can not find addJavascriptInterface method");
             Util.logException(e);
         }
+        try {
+            setWebViewClientMethod = Scene.v().getMethod(Util.setWebViewClientSig);
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find setWebViewClient method");
+            Util.logException(e);
+        }
+        try {
+            setWebChromeClientMethod = Scene.v().getMethod(Util.setWebChromeClientSig);
+        } catch (Exception e) {
+            Util.LOGGER.warning("Can not find setWebChromeClient method");
+            Util.logException(e);
+        }
+
         // filter all support classes and R classes
-        HashSet<SootClass> androidLibClasses = new HashSet<SootClass>();
+        HashSet<SootClass> androidLibClasses = new HashSet<>();
         for(SootClass cls : Scene.v().getApplicationClasses()) {
             String cl = cls.getName();
             if (cl.startsWith("android.support")) {
@@ -109,7 +127,7 @@ public class AppManager {
         }
 
         // filter all webview related classes
-        webviewClasses = new HashSet<SootClass>();
+        webviewClasses = new HashSet<>();
         for(SootClass cls : Scene.v().getApplicationClasses()) {
             if (Util.isSimilarClass(cls, WebViewClientClass)) {
                 webviewClasses.add(cls);
@@ -192,8 +210,7 @@ public class AppManager {
         }
         Util.LOGGER.info("running JSA of app");
 
-        HashSet<ValueBox> hotspots = new HashSet<ValueBox>();
-
+        this.jsa = new JSA();
         for (SootClass cls : webviewClasses) {
             for (SootMethod m : cls.getMethods()) {
                 if (!m.isConcrete()) continue;
@@ -208,6 +225,7 @@ public class AppManager {
                     }
                 }
 
+                int unitid = 0;
                 for (Unit u : b.getUnits()) {
                     try {
                         Stmt stmt = (Stmt) u;
@@ -216,23 +234,25 @@ public class AppManager {
                             SootMethod tgt = expr.getMethod();
                             if (Util.isSimilarMethod(tgt, loadUrlMethod)) {
                                 ValueBox urlValue = expr.getArgBox(0);
-                                hotspots.add(urlValue);
+                                BridgeContext context = new BridgeContext(m, u, unitid);
+                                this.jsa.addHotspots(context, urlValue);
                             } else if (Util.isSimilarMethod(tgt, addJavascriptInterfaceMethod)) {
                                 ValueBox interfaceNameValue = expr.getArgBox(1);
-                                hotspots.add(interfaceNameValue);
+                                BridgeContext context = new BridgeContext(m, u, unitid);
+                                this.jsa.addHotspots(context, interfaceNameValue);
                             }
                         }
                     } catch (Exception e) {
                         Util.LOGGER.warning("error generating hotspots for: " + m + u);
                         Util.logException(e);
                     }
+                    unitid++;
                 }
             }
         }
-        JSA.setHotspots(hotspots);
 
         try {
-            this.jsa = JSA.run();
+            this.jsa.run();
         }
         catch (Exception e) {
             Util.LOGGER.warning("JSA failed");
@@ -251,29 +271,29 @@ public class AppManager {
         Util.LOGGER.info("generating webview bridge of app");
 
         for (SootClass cls : webviewClasses) {
-            if (Util.isSimilarClass(cls, WebChromeClientClass)) {
-                for (SootMethod m : cls.getMethods()) {
-                    if (m.getName().equals("onJsAlert")) {
-                        VirtualWebview.v().addBridge(new EventBridge("alert", m));
-                    }
-                    else if (m.getName().equals("onJsConfirm")) {
-                        VirtualWebview.v().addBridge(new EventBridge("confirm", m));
-                    }
-                    else if (m.getName().equals("onJsPrompt")) {
-                        VirtualWebview.v().addBridge(new EventBridge("prompt", m));
-                    }
-                    else if (m.getName().equals("onConsoleMessage")) {
-                        VirtualWebview.v().addBridge(new EventBridge("console", m));
-                    }
-                }
-            }
-            else if (Util.isSimilarClass(cls, WebViewClientClass)) {
-                for (SootMethod m : cls.getMethods()) {
-                    if (m.getName().equals("shouldOverrideUrlLoading")) {
-                        VirtualWebview.v().addBridge(new EventBridge("url", m));
-                    }
-                }
-            }
+//            if (Util.isSimilarClass(cls, WebChromeClientClass)) {
+//                for (SootMethod m : cls.getMethods()) {
+//                    if (m.getName().equals("onJsAlert")) {
+//                        VirtualWebview.v().addBridge(new EventBridge("alert", m));
+//                    }
+//                    else if (m.getName().equals("onJsConfirm")) {
+//                        VirtualWebview.v().addBridge(new EventBridge("confirm", m));
+//                    }
+//                    else if (m.getName().equals("onJsPrompt")) {
+//                        VirtualWebview.v().addBridge(new EventBridge("prompt", m));
+//                    }
+//                    else if (m.getName().equals("onConsoleMessage")) {
+//                        VirtualWebview.v().addBridge(new EventBridge("console", m));
+//                    }
+//                }
+//            }
+//            else if (Util.isSimilarClass(cls, WebViewClientClass)) {
+//                for (SootMethod m : cls.getMethods()) {
+//                    if (m.getName().equals("shouldOverrideUrlLoading")) {
+//                        VirtualWebview.v().addBridge(new EventBridge("url", m));
+//                    }
+//                }
+//            }
 
             for (SootMethod m : cls.getMethods()) {
                 if (!m.isConcrete()) continue;
@@ -297,12 +317,11 @@ public class AppManager {
                             InvokeExpr expr = stmt.getInvokeExpr();
                             SootMethod tgt = expr.getMethod();
                             if (Util.isSimilarMethod(tgt, loadUrlMethod)) {
-                                VirtualWebview.v().loadUrlMethods.add(m);
+                                VirtualWebview.v().addLoadUrlContext(context);
                                 ValueBox urlValue = expr.getArgBox(0);
                                 String urlStr = null;
                                 if (this.jsa != null) {
-                                    Automaton urlAutomaton = this.jsa.getAutomaton(urlValue);
-                                    urlStr = urlAutomaton.getShortestExample(true);
+                                    urlStr = this.jsa.getStringAnalysisResult(context);
                                 }
                                 if (urlStr == null) {
                                     urlStr = urlValue.getValue().toString();
@@ -318,8 +337,7 @@ public class AppManager {
                                 String interfaceNameStr = null;
 
                                 if (this.jsa != null) {
-                                    Automaton interfaceNameAutomaton = this.jsa.getAutomaton(interfaceNameValue);
-                                    interfaceNameStr = interfaceNameAutomaton.getShortestExample(true);
+                                    interfaceNameStr = this.jsa.getStringAnalysisResult(context);
                                 }
                                 if (interfaceNameStr == null) {
                                     interfaceNameStr = interfaceNameValue.getValue().toString();
@@ -340,7 +358,27 @@ public class AppManager {
                                     if (!(possibleType instanceof RefType))
                                         continue;
                                     VirtualWebview.v().addBridge(new JsInterfaceBridge(
-                                            ((RefType) possibleType).getSootClass(), interfaceNameStr, context));
+                                            ((RefType) possibleType).getSootClass(), interfaceObj,
+                                            interfaceNameStr, context));
+                                }
+                            } else if (Util.isSimilarMethod(tgt, setWebViewClientMethod) ||
+                                    Util.isSimilarMethod(tgt, setWebChromeClientMethod)) {
+                                Value webViewClientValue = expr.getArg(0);
+
+                                HashSet<Type> possibleTypes = new HashSet<Type>();
+
+                                if (this.pta == null) {
+                                    possibleTypes.add(webViewClientValue.getType());
+                                }
+                                else {
+                                    PointsToSet interfaceClass = this.pta.reachingObjects((Local) webViewClientValue);
+                                    possibleTypes.addAll(interfaceClass.possibleTypes());
+                                }
+                                for (Type possibleType : possibleTypes) {
+                                    if (!(possibleType instanceof RefType))
+                                        continue;
+                                    VirtualWebview.v().addBridge(new WebViewClientBridge(
+                                            ((RefType) possibleType).getSootClass(), webViewClientValue, context));
                                 }
                             }
                         }

@@ -5,4 +5,6 @@ package com.lynnlyc.bridge;
  * Package: webview-flow
  */
 public abstract class Bridge {
+    public abstract void export2app();
+    public abstract void export2web();
 }

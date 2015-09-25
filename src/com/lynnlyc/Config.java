@@ -11,6 +11,8 @@ package com.lynnlyc;
 
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FileUtils;
+import soot.G;
+import soot.Scene;
 import soot.options.Options;
 
 import java.io.File;
@@ -161,6 +163,7 @@ public class Config {
         readSourceAndSink();
 
         Util.LOGGER.log(Level.INFO, "initializing...");
+
         Options.v().set_prepend_classpath(true);
         Options.v().set_allow_phantom_refs(true);
         Options.v().set_whole_program(true);
@@ -186,6 +189,35 @@ public class Config {
 
         Config.isInitialized = true;
         Util.LOGGER.log(Level.INFO,  "initialization finished...");
+    }
+
+    public static void reinit() {
+        Util.LOGGER.log(Level.INFO, "initializing...");
+
+        Options.v().set_prepend_classpath(true);
+        Options.v().set_allow_phantom_refs(true);
+        Options.v().set_whole_program(true);
+        Options.v().set_src_prec(Options.src_prec_apk);
+        Options.v().set_output_dir(Config.javaDirPath);
+        Options.v().set_debug(true);
+        Options.v().set_validate(true);
+
+        if ("jimple".equals(Config.outputFormat)) {
+            Options.v().set_output_format(Options.output_format_jimple);
+        }
+        else if ("dex".equals(Config.outputFormat)) {
+            Options.v().set_output_format(Options.output_format_dex);
+        }
+
+        List<String> process_dirs = new ArrayList<>();
+        process_dirs.add(Config.appFilePath);
+        Options.v().set_process_dir(process_dirs);
+        if (!("".equals(Config.androidPlatformDir)))
+            Options.v().set_android_jars(Config.androidPlatformDir);
+        if (!("".equals(Config.forceAndroidJarPath)))
+            Options.v().set_force_android_jar(Config.forceAndroidJarPath);
+
+        Config.isInitialized = true;
     }
 
     public static PrintStream getBridgePs() {

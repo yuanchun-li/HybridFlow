@@ -32,6 +32,7 @@ import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.Predicate;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.Pair;
+import com.lynnlyc.app.AppManager;
 import soot.PackManager;
 import soot.Scene;
 import soot.SootClass;
@@ -45,6 +46,11 @@ public class Util {
 			"<android.webkit.WebView: void loadUrl(java.lang.String)>";
 	public static final String addJavascriptInterfaceSig =
 			"<android.webkit.WebView: void addJavascriptInterface(java.lang.Object,java.lang.String)>";
+	public static final String setWebViewClientSig =
+			"<android.webkit.WebView: void setWebViewClient(android.webkit.WebViewClient)>";
+    public static final String setWebChromeClientSig =
+            "<android.webkit.WebView: void setWebChromeClient(android.webkit.WebChromeClient)>";
+
 	
 	public static void printIRsForHTML(String filename) throws IllegalArgumentException, MalformedURLException, IOException,
 	CancelException, WalaException, Error {

@@ -3,6 +3,9 @@ import java.io.PrintStream;
 
 import com.lynnlyc.app.AppManager;
 import com.lynnlyc.bridge.VirtualWebview;
+import soot.G;
+import soot.PackManager;
+import soot.Singletons;
 
 public class Main {
 	public static void main(String[] args) {
@@ -18,16 +21,17 @@ public class Main {
 
         if (Config.runPTA)
             appManager.runPTA();
-        if (Config.runJSA)
+        if (Config.runJSA) {
             appManager.runJSA();
+            G.reset();
+            Config.reinit();
+            appManager.prepare();
+        }
 
         appManager.generateBridges();
 
         VirtualWebview.v().dump(Config.getBridgePs());
-        VirtualWebview.v().instrumentBridgeToApp();
+        VirtualWebview.v().generateJavaSideResult();
         VirtualWebview.v().generateHTMLSideResult();
-
-        VirtualWebview.v().dumpJavaSideResult();
-        VirtualWebview.v().dumpHTMLSideResult();
 	}
 }

@@ -8,12 +8,15 @@ import soot.*;
 import soot.jimple.Jimple;
 import soot.jimple.JimpleBody;
 
+import javax.swing.plaf.synth.SynthEditorPaneUI;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.logging.Level;
@@ -32,52 +35,85 @@ public class VirtualWebview {
     }
 
     private HashSet<SootClass> webviewClasses;
-    public HashSet<SootMethod> loadUrlMethods;
-    private HashSet<JsInterfaceBridge> jsInterfaceBridges;
-    private HashSet<JavascriptBridge> javascriptBridges;
-    private HashSet<UrlBridge> urlBridges;
-    private HashSet<EventBridge> eventBridges;
+    private HashSet<BridgeContext> loadUrlContexts;
+    public void addLoadUrlContext(BridgeContext context) {
+        loadUrlContexts.add(context);
+    }
+
+    private HashSet<Bridge> bridges;
+
+//    private HashSet<JsInterfaceBridge> jsInterfaceBridges;
+//    private HashSet<JavascriptBridge> javascriptBridges;
+//    private HashSet<UrlBridge> urlBridges;
+//    private HashSet<EventBridge> eventBridges;
+//    private HashSet<WebViewClientBridge> webViewClientBridges;
 
     private VirtualWebview() {
         webviewClasses = new HashSet<>();
-        loadUrlMethods = new HashSet<>();
-        jsInterfaceBridges = new HashSet<>();
-        javascriptBridges = new HashSet<>();
-        urlBridges = new HashSet<>();
-        eventBridges = new HashSet<>();
+        loadUrlContexts = new HashSet<>();
+        bridges = new HashSet<>();
+        mockFields = new HashMap<>();
+//        jsInterfaceBridges = new HashSet<>();
+//        javascriptBridges = new HashSet<>();
+//        urlBridges = new HashSet<>();
+//        eventBridges = new HashSet<>();
+//        webViewClientBridges = new HashSet<>();
     }
 
     public void dump(PrintStream os) {
-        os.println("======Virtual Webview Bridges======");
+//        os.println("======Virtual Webview Bridges======");
 //        os.println("------    WebViewClasses     ------");
 //        for (SootClass sootClass : this.webviewClasses) {
 //            os.println(sootClass);
 //        }
-
-        os.println("------   JsInterfaceBridges  ------");
-        for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
-            os.println(jsInterfaceBridge);
+//        os.println("------   JsInterfaceBridges  ------");
+//        for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
+//            os.println(jsInterfaceBridge);
+//        }
+//
+//        os.println("------   JavascriptBridges   ------");
+//        for (JavascriptBridge javascriptBridge : javascriptBridges) {
+//            os.println(javascriptBridge);
+//        }
+//
+//        os.println("------      UrlBridges       ------");
+//        for (UrlBridge urlBridge : urlBridges) {
+//            os.println(urlBridge);
+//        }
+//        os.println("-----    WebViewClientBridges   -----");
+//        for (WebViewClientBridge webViewClientBridge : webViewClientBridges) {
+//            os.println(webViewClientBridge);
+//        }
+//        os.println("------     EventBridges      ------");
+//        for (EventBridge eventBridge : eventBridges) {
+//            os.println(eventBridge);
+//        }
+//        os.println("======     End of Bridges    ======");
+        for (Bridge bridge : bridges) {
+            os.println(bridge);
         }
+    }
 
-        os.println("------   JavascriptBridges   ------");
-        for (JavascriptBridge javascriptBridge : javascriptBridges) {
-            os.println(javascriptBridge);
-        }
+    // set and get a local as a mock field
+    public static int mockFieldId = 0;
+    public HashMap<Bridge, SootField> mockFields;
+    public SootField getMockField(Bridge bridge, Value v, BridgeContext context) {
+        if (mockFields.containsKey(bridge)) return mockFields.get(bridge);
 
-        os.println("------      UrlBridges       ------");
-        for (UrlBridge urlBridge : urlBridges) {
-            os.println(urlBridge);
-        }
+        SootField mockField = new SootField(String.format("mock_field_%d", mockFieldId++),
+                v.getType(), Modifier.PUBLIC | Modifier.STATIC);
+        webViewBridgeClass.addField(mockField);
+        mockFields.put(bridge, mockField);
 
-        os.println("------     EventBridges      ------");
-        for (EventBridge eventBridge : eventBridges) {
-            os.println(eventBridge);
-        }
-        os.println("======     End of Bridges    ======");
+        context.method.getActiveBody().getUnits().insertAfter(
+                Jimple.v().newAssignStmt(Jimple.v().newStaticFieldRef(mockField.makeRef()), v),
+                context.unit);
+
+        return mockField;
     }
 
     // set parameters of a method as sources
-    private void setJavaSourceMethod(SootMethod method) {
+    public void setJavaSourceMethod(SootMethod method, SootField baseField) {
         List<Type> para_types = method.getParameterTypes();
         List<Value> paras = new ArrayList<>();
         for (Type t : para_types) {
@@ -89,23 +125,22 @@ public class VirtualWebview {
                     Jimple.v().newStaticInvokeExpr(method.makeRef(), paras)));
         }
         else {
-            Local base = getTaintedLocal(method.getDeclaringClass().getType());
+            Local base = getNewLocal(baseField.getType());
+            mockMainBody.getUnits().addLast(Jimple.v().newAssignStmt(
+                    base, Jimple.v().newStaticFieldRef(baseField.makeRef())));
             mockMainBody.getUnits().addLast(Jimple.v().newInvokeStmt(
                     Jimple.v().newVirtualInvokeExpr(base, method.makeRef(), paras)));
         }
-
     }
 
-    private void setJavaSinkMethod(SootMethod method) {
-        String line = String.format("%s -> _SINK__", method.getSignature());
+    public void setJavaSinkMethod(SootMethod method) {
+        String line = String.format("%s -> _SINK_", method.getSignature());
         Config.javaSourcesAndSinks.add(line);
     }
 
     private SootClass webViewBridgeClass;
     private SootMethod mockMain;
     private JimpleBody mockMainBody;
-    private SootMethod mockSource;
-    private JimpleBody mockSourceBody;
     private SootClass objectClass;
     private Local taintedObject;
 
@@ -118,34 +153,55 @@ public class VirtualWebview {
     }
 
     private Local getTaintedLocal(Type t) {
-        Local castedTaint = getNewLocal(t);
-
-        mockMainBody.getUnits().addLast(
-                Jimple.v().newAssignStmt(castedTaint,
-                        Jimple.v().newCastExpr(taintedObject, t)));
-
-        return castedTaint;
+        return taintedObject;
+//        Local castedTaint = getNewLocal(t);
+//
+//        mockMainBody.getUnits().addLast(
+//                Jimple.v().newAssignStmt(castedTaint, taintedObject));
+//
+//        return castedTaint;
     }
 
     public void instrumentBridgeToApp() {
         Scene.v().loadClassAndSupport("java.lang.Object");
         objectClass = Scene.v().getSootClass("java.lang.Object");
 
-        webViewBridgeClass = new SootClass(Config.projectName, Modifier.PUBLIC);
-        webViewBridgeClass.setSuperclass(objectClass);
-        List<Type> paras = new ArrayList<>();
-        mockMain = new SootMethod("main", paras, VoidType.v(),
-                Modifier.PUBLIC | Modifier.STATIC);
-        mockSource = new SootMethod("mockSource", paras, objectClass.getType(),
-                Modifier.PUBLIC | Modifier.STATIC);
-        webViewBridgeClass.addMethod(mockMain);
-        webViewBridgeClass.addMethod(mockSource);
+//        Scene.v().loadClassAndSupport("android.app.Service");
+//        SootClass serviceClass = Scene.v().getSootClass("android.app.Service");
+//        SootClass bundleClass = Scene.v().getSootClass("android.os.Bundle");
+        SootClass threadClass = Scene.v().getSootClass("java.lang.Thread");
 
+        webViewBridgeClass = new SootClass(Config.projectName, Modifier.PUBLIC);
+        webViewBridgeClass.setSuperclass(threadClass);
+
+        List<Type> paras = new ArrayList<>();
+        paras.add(threadClass.getType());
+        mockMain = new SootMethod("main", paras, VoidType.v(), Modifier.PUBLIC|Modifier.STATIC);
         mockMainBody = Jimple.v().newBody(mockMain);
         mockMain.setActiveBody(mockMainBody);
 
-        mockSourceBody = Jimple.v().newBody(mockSource);
+        paras = new ArrayList<>();
+        SootMethod mockSource = new SootMethod("mockSource", paras, objectClass.getType(),
+                Modifier.PUBLIC | Modifier.STATIC);
+
+        paras = new ArrayList<>();
+        paras.add(objectClass.getType());
+        SootMethod mockSink = new SootMethod("mockSink", paras, VoidType.v(),
+                Modifier.PUBLIC | Modifier.STATIC);
+
+        webViewBridgeClass.addMethod(mockMain);
+        webViewBridgeClass.addMethod(mockSource);
+        webViewBridgeClass.addMethod(mockSink);
+
+        JimpleBody mockSourceBody = Jimple.v().newBody(mockSource);
+        mockSourceBody.getUnits().addLast(
+                Jimple.v().newReturnStmt(
+                        Jimple.v().newLocal("taint", objectClass.getType())));
         mockSource.setActiveBody(mockSourceBody);
+
+        JimpleBody mockSinkBody = Jimple.v().newBody(mockSink);
+        mockSinkBody.getUnits().addLast(Jimple.v().newReturnVoidStmt());
+        mockSink.setActiveBody(mockSinkBody);
 
         taintedObject = getNewLocal(objectClass.getType());
         mockMainBody.getUnits().addLast(
@@ -153,37 +209,22 @@ public class VirtualWebview {
                         Jimple.v().newStaticInvokeExpr(
                                 mockSource.makeRef(), new ArrayList<Value>())));
 
-        String line = String.format("%s -> _SOURCE__", mockSource.getSignature());
+        String line = String.format("%s -> _SOURCE_", mockSource.getSignature());
         Config.javaSourcesAndSinks.add(line);
 
-        for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
-            for (SootMethod m : jsInterfaceBridge.interfaceClass.getMethods()) {
-                if (!m.isPublic() || m.isConstructor() || m.isAbstract())
-                    continue;
-                setJavaSourceMethod(m);
-            }
-        }
+//        SootMethod sinkExample = Scene.v().getMethod("<com.lynnlyc.webview.WebviewDemoInterface: void logInApp(java.lang.String)>");
+//        setJavaSourceMethod(sinkExample);
 
-        for (EventBridge eventBridge : eventBridges) {
-            SootMethod target = eventBridge.eventTarget;
-            setJavaSourceMethod(target);
-        }
+        setJavaSinkMethod(mockSink);
+        setJavaSourceMethod(mockSink, null);
 
-        for (JavascriptBridge javascriptBridge : javascriptBridges) {
-            SootMethod invokedMethod = javascriptBridge.context.getInvokedMethod();
-            if (invokedMethod == null) continue;
-            setJavaSinkMethod(invokedMethod);
-        }
-
-        for (UrlBridge urlBridge : urlBridges) {
-            SootMethod invokedMethod = urlBridge.context.getInvokedMethod();
-            if (invokedMethod == null) continue;
-            setJavaSinkMethod(invokedMethod);
+        for (Bridge bridge : bridges) {
+            bridge.export2app();
         }
 
         // add invocation of mockMain to app, so that other java-side analysis can reach mockMain
-        for (SootMethod m : loadUrlMethods)
-            this.addMockMainToMethod(m);
+        for (BridgeContext c : loadUrlContexts)
+            this.addMockMainToContext(c);
 
         Scene.v().addClass(webViewBridgeClass);
         webViewBridgeClass.setApplicationClass();
@@ -196,7 +237,16 @@ public class VirtualWebview {
                 Jimple.v().newStaticInvokeExpr(mockMain.makeRef())));
     }
 
-    public void dumpJavaSideResult() {
+    private void addMockMainToContext(BridgeContext c) {
+        if (c == null || c.method == null) return;
+
+        Body b = c.method.getActiveBody();
+        b.getUnits().insertAfter(Jimple.v().newInvokeStmt(
+                Jimple.v().newStaticInvokeExpr(mockMain.makeRef())), c.unit);
+    }
+
+    public void generateJavaSideResult() {
+        this.instrumentBridgeToApp();
         AppManager.v().outputInstrumentedApp();
         File javaSourceAndSink = new File(Config.javaDirPath + "/SourcesAndSinks.txt");
         try {
@@ -206,8 +256,8 @@ public class VirtualWebview {
         }
     }
 
-    private HashSet<String> possibleURLs = new HashSet<>();
-    private void addPossibleURL(String url_str) {
+    public HashSet<String> possibleURLs = new HashSet<>();
+    public void addPossibleURL(String url_str) {
         try {
             URL url = new URL(url_str);
             possibleURLs.add(url.toString());
@@ -216,85 +266,32 @@ public class VirtualWebview {
         }
     }
 
-    private void addHTMLsource(String source) {
+    public void addHTMLsource(String source) {
         String line = String.format("HTML <%s> -> _SOURCE_", source);
         Config.htmlSourcesAndSinks.add(line);
     }
 
-    private void addHTMLsink(String sink) {
+    public void addHTMLsink(String sink) {
         String line = String.format("HTML <%s> -> _SINK_", sink);
         Config.htmlSourcesAndSinks.add(line);
     }
 
     public void generateHTMLSideResult() {
-        for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
-            for (SootMethod m : jsInterfaceBridge.interfaceClass.getMethods()) {
-                if (!m.isPublic() || m.isConstructor() || m.isAbstract())
-                    continue;
-                this.addHTMLsink(String.format("ARGS %s.%s",
-                        jsInterfaceBridge.interfaceName, m.getName()));
-                this.addHTMLsource(String.format("RET %s.%s",
-                        jsInterfaceBridge.interfaceName, m.getName()));
-            }
+        for (Bridge bridge : bridges) {
+            bridge.export2web();
         }
-
-        for (EventBridge eventBridge : eventBridges) {
-            this.addHTMLsink(String.format("ARGS window.%s", eventBridge.eventType));
-        }
-
-        for (JavascriptBridge javascriptBridge : javascriptBridges) {
-            // TODO mark the js methods used in the script as source
-            // javascriptBridge.getTempFile();
-        }
-
-        for (UrlBridge urlBridge : urlBridges) {
-            this.addPossibleURL(urlBridge.url);
-        }
-    }
-
-    public void dumpHTMLSideResult() {
         File possibleURLsFile = new File(Config.htmlDirPath + "/possibleURLs.txt");
         File htmlSourceAndSink = new File(Config.htmlDirPath + "/SourcesAndSinks.txt");
         try {
             FileUtils.writeLines(possibleURLsFile, possibleURLs);
             FileUtils.writeLines(htmlSourceAndSink, Config.htmlSourcesAndSinks);
-            for (JavascriptBridge javascriptBridge : javascriptBridges) {
-                String script_file_name = String.format("%s/taintjs_%d.js",
-                        Config.htmlDirPath, javascriptBridge.js_id);
-                String script = javascriptBridge.script;
-                FileUtils.write(new File(script_file_name), script);
-            }
-            for (UrlBridge urlBridge : urlBridges) {
-                try {
-                    String url_file_name = String.format("%s/url_page_%d.html",
-                            Config.htmlDirPath, urlBridge.url_id);
-                    URL url = new URL(urlBridge.url);
-                    FileUtils.copyURLToFile(url, new File(url_file_name));
-                } catch (MalformedURLException e) {
-                    Util.LOGGER.warning("malformed url: " + urlBridge.url);
-                }
-            }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public void addBridge(Bridge bridge) {
-        if (bridge instanceof JsInterfaceBridge) {
-            jsInterfaceBridges.add((JsInterfaceBridge) bridge);
-        }
-        else if (bridge instanceof JavascriptBridge) {
-            javascriptBridges.add((JavascriptBridge) bridge);
-        }
-        else if (bridge instanceof UrlBridge) {
-            urlBridges.add((UrlBridge) bridge);
-        }
-        else if (bridge instanceof EventBridge) {
-            eventBridges.add((EventBridge) bridge);
-        }
-        else {
-            Util.LOGGER.log(Level.WARNING, "Unknown bridge type." + bridge);
-        }
+        this.bridges.add(bridge);
     }
 
     public void setWebviewClasses(HashSet<SootClass> webviewClasses) {

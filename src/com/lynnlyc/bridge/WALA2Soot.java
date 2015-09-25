@@ -1,21 +1,14 @@
 package com.lynnlyc.bridge;
 
-import com.ibm.wala.cast.tree.CAstType;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.callgraph.CGNode;
-import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
-import com.ibm.wala.util.strings.Atom;
-import com.lynnlyc.Util;
-import soot.MethodOrMethodContext;
-import soot.Scene;
 import soot.SootMethod;
 import soot.Type;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import com.ibm.wala.scandroid.*;
 
 /**
  * Created by yuanchun on 5/10/15.
