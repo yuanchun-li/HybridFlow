@@ -44,7 +44,7 @@ public class UrlBridge extends Bridge {
             URL url = new URL(this.url);
             File url_file = new File(url_file_name);
             FileUtils.copyURLToFile(url, url_file);
-            WebManager.v().addHtmlFile(url_file);
+            WebManager.v().addPossibleURL(url);
         } catch (MalformedURLException e) {
             Util.LOGGER.warning("malformed url: " + this.url);
         } catch (UnknownHostException e) {

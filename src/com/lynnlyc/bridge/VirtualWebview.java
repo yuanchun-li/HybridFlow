@@ -3,6 +3,7 @@ package com.lynnlyc.bridge;
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import com.lynnlyc.app.AppManager;
+import com.lynnlyc.web.WebManager;
 import org.apache.commons.io.FileUtils;
 import soot.*;
 import soot.jimple.Jimple;
@@ -280,6 +281,7 @@ public class VirtualWebview {
         for (Bridge bridge : bridges) {
             bridge.export2web();
         }
+
         File possibleURLsFile = new File(Config.htmlDirPath + "/possibleURLs.txt");
         File htmlSourceAndSink = new File(Config.htmlDirPath + "/SourcesAndSinks.txt");
         try {
