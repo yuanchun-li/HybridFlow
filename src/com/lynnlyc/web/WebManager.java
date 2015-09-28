@@ -62,7 +62,6 @@ public class WebManager {
         taint_js_files = new HashSet<>();
         possible_urls = new HashSet<>();
         sourceSinks = new HashSet<>();
-        this.setSourceSinks(Config.htmlSourcesAndSinks);
     }
 
     public void addTaintJsFile(File taintJs) {

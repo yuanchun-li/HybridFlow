@@ -35,6 +35,7 @@ public class Main {
         VirtualWebview.v().generateJavaSideResult();
         VirtualWebview.v().generateHTMLSideResult();
 
+        WebManager.v().setSourceSinks(Config.htmlSourcesAndSinks);
         WebManager.v().runTaintAnalysis();
 	}
 }
