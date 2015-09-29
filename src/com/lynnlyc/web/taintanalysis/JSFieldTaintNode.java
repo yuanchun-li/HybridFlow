@@ -1,14 +1,15 @@
 package com.lynnlyc.web.taintanalysis;
 
 import com.ibm.wala.classLoader.IField;
+import com.ibm.wala.types.FieldReference;
 
 /**
  * Created by liyc on 9/27/15.
  */
 public class JSFieldTaintNode extends JSTaintNode {
-    public IField value;
+    public FieldReference value;
 
-    public JSFieldTaintNode(IField field) {
+    public JSFieldTaintNode(FieldReference field) {
         value = field;
     }
 
@@ -25,6 +26,6 @@ public class JSFieldTaintNode extends JSTaintNode {
     }
 
     public String toString() {
-        return String.format("%s", value.getReference().getSignature());
+        return String.format("%s", value.getSignature());
     }
 }

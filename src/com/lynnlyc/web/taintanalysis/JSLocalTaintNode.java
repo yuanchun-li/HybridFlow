@@ -2,15 +2,16 @@ package com.lynnlyc.web.taintanalysis;
 
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.callgraph.CGNode;
+import com.ibm.wala.types.MethodReference;
 import com.ibm.wala.util.collections.Pair;
 
 /**
  * Created by liyc on 9/27/15.
  */
 public class JSLocalTaintNode extends JSTaintNode {
-    public Pair<IMethod, Integer> value;
+    public Pair<MethodReference, Integer> value;
 
-    public JSLocalTaintNode(Pair<IMethod, Integer> value) {
+    public JSLocalTaintNode(Pair<MethodReference, Integer> value) {
         this.value = value;
     }
 

@@ -56,19 +56,10 @@ public class JSTaintAnalysis {
     private final ExplodedInterproceduralCFG icfg;
 
     /**
-     * maps call graph node and instruction index of putstatic instructions to more compact numbering for bitvectors
-     */
-    private final OrdinalSetMapping<Pair<CGNode, Integer>> instrNumbering;
-
-    /**
      * for resolving field references in putstatic instructions
      */
     private final IClassHierarchy cha;
 
-    /**
-     * maps each static field to the numbers of the statements (in {@link #instrNumbering}) that define it; used for kills in flow
-     * functions
-     */
     private final Map<IField, BitVector> staticField2DefStatements = HashMapFactory.make();
 
     private static final boolean VERBOSE = true;
@@ -89,14 +80,9 @@ public class JSTaintAnalysis {
         this.icfg = ExplodedInterproceduralCFG.make(cg);
         this.cha = cg.getClassHierarchy();
         this.sourceSinks = sourceSinks;
-        this.instrNumbering = numberInstructions();
         this.invokeInstTags = tagInvokeInsts();
         this.taintNodeNumbering = numberTaintNodes();
         this.taintInit();
-    }
-
-    private OrdinalSetMapping<Pair<CGNode, Integer>> numberInstructions() {
-        return null;
     }
 
     private void taintInit() {
@@ -113,7 +99,7 @@ public class JSTaintAnalysis {
                 fieldTags.add(field.getReference().getSignature());
                 fieldTags.add(field.getFieldTypeReference().toString());
 
-                JSTaintNode node = new JSFieldTaintNode(field);
+                JSTaintNode node = new JSFieldTaintNode(field.getReference());
 
                 for (SourceSink sourceSink : this.getMatchedSourceAndSink(fieldTags)) {
                     if (sourceSink.isSource) markNode(node, mockSource);
@@ -167,7 +153,7 @@ public class JSTaintAnalysis {
                 icfg.getCallGraph().getEntrypointNodes().add(cgNode);
                 int[] paraIds = cgNode.getIR().getSymbolTable().getParameterValueNumbers();
                 for (int i : paraIds) {
-                    JSTaintNode taintNode = new JSLocalTaintNode(Pair.make(method, i));
+                    JSTaintNode taintNode = new JSLocalTaintNode(Pair.make(method.getReference(), i));
                     this.markNode(taintNode, mockSource);
                 }
             }
@@ -175,7 +161,7 @@ public class JSTaintAnalysis {
 
     }
 
-    private void markNode(JSTaintNode site, JSTaintNode mark) {
+    public void markNode(JSTaintNode site, JSTaintNode mark) {
         int siteId = this.taintNodeNumbering.getMappedIndex(site);
         int markId = this.taintNodeNumbering.getMappedIndex(mark);
         BitVector bv = this.taintNodeChain.get(siteId);
@@ -209,7 +195,7 @@ public class JSTaintAnalysis {
         while (classIterator.hasNext()) {
             IClass cls = classIterator.next();
             for (IField field : cls.getAllFields()) {
-                taintNodes.add(new JSFieldTaintNode(field));
+                taintNodes.add(new JSFieldTaintNode(field.getReference()));
             }
         }
 
@@ -232,7 +218,7 @@ public class JSTaintAnalysis {
             int maxValueNumber = node.getIR().getSymbolTable().getMaxValueNumber();
 
             for (int i = 0; i <= maxValueNumber; i++) {
-                taintNodes.add(new JSLocalTaintNode(Pair.make(m, i)));
+                taintNodes.add(new JSLocalTaintNode(Pair.make(m.getReference(), i)));
             }
         }
         return new ObjectArrayMapping<JSTaintNode>(taintNodes.toArray(new JSTaintNode[taintNodes.size()]));
@@ -324,6 +310,25 @@ public class JSTaintAnalysis {
             SSAInstruction instruction = ebb.getInstruction();
             int instructionIndex = ebb.getFirstInstructionIndex();
             CGNode cgNode = node.getNode();
+            IMethod method = cgNode.getMethod();
+
+            JSTaintNode mediatorTaintNode = new JSInstrutionTaintNode(Pair.make(cgNode, instructionIndex));
+            HashSet<JSTaintNode> defTaintNodes = new HashSet<>();
+            for (int i = 0; i < instruction.getNumberOfDefs(); i++)
+                defTaintNodes.add(new JSLocalTaintNode(Pair.make(method.getReference(), instruction.getDef(i))));
+            if (instruction instanceof SSAPutInstruction)
+                defTaintNodes.add(new JSFieldTaintNode(((SSAPutInstruction) instruction).getDeclaredField()));
+
+            HashSet<JSTaintNode> useTaintNodes = new HashSet<>();
+            for (int i = 0; i < instruction.getNumberOfUses(); i++)
+                useTaintNodes.add(new JSLocalTaintNode(Pair.make(method.getReference(), instruction.getUse(i))));
+            if (instruction instanceof SSAGetInstruction)
+                useTaintNodes.add(new JSFieldTaintNode(((SSAGetInstruction) instruction).getDeclaredField()));
+
+            for (JSTaintNode defNode : defTaintNodes) {
+                BitVector defNodeValue = taintNodeChain.get(defNode);
+                if (defNodeValue != null) markNode(mediatorTaintNode, defNode);
+            }
             if (instruction instanceof SSAPutInstruction && ((SSAPutInstruction) instruction).isStatic()) {
                 // kill all defs of the same static field, and gen this instruction
                 final SSAPutInstruction putInstr = (SSAPutInstruction) instruction;
@@ -331,7 +336,7 @@ public class JSTaintAnalysis {
                 assert field != null;
                 BitVector kill = staticField2DefStatements.get(field);
                 BitVector gen = new BitVector();
-                gen.set(instrNumbering.getMappedIndex(Pair.make(cgNode, instructionIndex)));
+                gen.set(taintNodeNumbering.getMappedIndex(Pair.make(cgNode, instructionIndex)));
                 return new BitVectorKillGen(kill, gen);
             } else {
                 // identity function for non-putstatic instructions
@@ -381,8 +386,8 @@ public class JSTaintAnalysis {
      */
     public BitVectorSolver<BasicBlockInContext<IExplodedBasicBlock>> analyze() {
         // the framework describes the dataflow problem, in particular the underlying graph and the transfer functions
-        BitVectorFramework<BasicBlockInContext<IExplodedBasicBlock>, Pair<CGNode, Integer>> framework = new BitVectorFramework<BasicBlockInContext<IExplodedBasicBlock>, Pair<CGNode, Integer>>(
-                icfg, new TransferFunctions(), instrNumbering);
+        BitVectorFramework<BasicBlockInContext<IExplodedBasicBlock>, JSTaintNode> framework = new BitVectorFramework<>(
+                icfg, new TransferFunctions(), this.taintNodeNumbering);
         BitVectorSolver<BasicBlockInContext<IExplodedBasicBlock>> solver = new BitVectorSolver<BasicBlockInContext<IExplodedBasicBlock>>(
                 framework);
         try {
@@ -400,12 +405,5 @@ public class JSTaintAnalysis {
             }
         }
         return solver;
-    }
-
-    /**
-     * gets putstatic instruction corresponding to some fact number from a bitvector in the analysis result
-     */
-    public Pair<CGNode, Integer> getNodeAndInstrForNumber(int num) {
-        return instrNumbering.getMappedObject(num);
     }
 }
