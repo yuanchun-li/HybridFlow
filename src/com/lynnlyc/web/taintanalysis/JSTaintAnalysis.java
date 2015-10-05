@@ -15,15 +15,11 @@ import java.util.*;
 import com.ibm.wala.cast.ir.ssa.AstLexicalAccess;
 import com.ibm.wala.cast.ir.ssa.AstLexicalRead;
 import com.ibm.wala.cast.js.ssa.JavaScriptInvoke;
-import com.ibm.wala.cast.js.ssa.JavaScriptPropertyRead;
-import com.ibm.wala.cast.js.ssa.PrototypeLookup;
-import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.dataflow.graph.AbstractMeetOperator;
 import com.ibm.wala.dataflow.graph.BitVectorFramework;
 import com.ibm.wala.dataflow.graph.BitVectorIdentity;
-import com.ibm.wala.dataflow.graph.BitVectorKillAll;
 import com.ibm.wala.dataflow.graph.BitVectorKillGen;
 import com.ibm.wala.dataflow.graph.BitVectorSolver;
 import com.ibm.wala.dataflow.graph.BitVectorUnion;
@@ -44,6 +40,7 @@ import com.ibm.wala.util.collections.ObjectArrayMapping;
 import com.ibm.wala.util.collections.Pair;
 import com.ibm.wala.util.intset.BitVector;
 import com.ibm.wala.util.intset.OrdinalSetMapping;
+import com.lynnlyc.Util;
 
 /**
  * Computes interprocedural reaching definitions for static fields in a context-insensitive manner.
@@ -87,23 +84,20 @@ public class JSTaintAnalysis {
 
     private void taintInit() {
         // fields
-        Iterator<IClass> classIterator = cha.getLoaders()[0].iterateAllClasses();
-        while (classIterator.hasNext()) {
-            IClass cls = classIterator.next();
-            HashSet<String> clsTags = new HashSet<>();
-            clsTags.add(cls.getReference().toString());
+        for (CGNode cgNode : icfg.getCallGraph()) {
+            for (SSAInstruction instruction : cgNode.getIR().getInstructions()) {
+                if (instruction instanceof SSAFieldAccessInstruction) {
+                    FieldReference fr = ((SSAFieldAccessInstruction) instruction).getDeclaredField();
+                    HashSet<String> fieldTags = new HashSet<>();
+                    fieldTags.add(fr.getSignature());
+                    fieldTags.add(fr.getFieldType().toString());
 
-            for (IField field : cls.getAllFields()) {
-                HashSet<String> fieldTags = new HashSet<>();
-                fieldTags.addAll(clsTags);
-                fieldTags.add(field.getReference().getSignature());
-                fieldTags.add(field.getFieldTypeReference().toString());
+                    JSTaintNode node = new JSFieldTaintNode(fr);
 
-                JSTaintNode node = new JSFieldTaintNode(field.getReference());
-
-                for (SourceSink sourceSink : this.getMatchedSourceAndSink(fieldTags)) {
-                    if (sourceSink.isSource) markNode(node, mockSource);
-                    else markNode(node, mockSink);
+                    for (SourceSink sourceSink : this.getMatchedSourceAndSink(fieldTags)) {
+                        if (sourceSink.isSource) markNode(node, mockSource);
+                        else markNode(mockSink, node);
+                    }
                 }
             }
         }
@@ -140,11 +134,11 @@ public class JSTaintAnalysis {
                         if (!sourceSink.isSource && sourceSink.isArgs) argsAreSink = true;
                     }
                     if (retIsSource) this.markNode(taintNode, mockSource);
-                    if (argsAreSink) this.markNode(taintNode, mockSink);
+                    if (argsAreSink) this.markNode(mockSink, taintNode);
                 }
                 else if (retIsSink && instruction instanceof SSAReturnInstruction) {
                     JSTaintNode taintNode = new JSInstrutionTaintNode(Pair.make(cgNode, i));
-                    this.markNode(taintNode, mockSink);
+                    this.markNode(mockSink, taintNode);
                 }
             }
 
@@ -164,6 +158,10 @@ public class JSTaintAnalysis {
     public void markNode(JSTaintNode site, JSTaintNode mark) {
         int siteId = this.taintNodeNumbering.getMappedIndex(site);
         int markId = this.taintNodeNumbering.getMappedIndex(mark);
+        markNodeId(siteId, markId);
+    }
+
+    public void markNodeId(int siteId, int markId) {
         BitVector bv = this.taintNodeChain.get(siteId);
         if (bv == null) {
             bv = new BitVector();
@@ -191,11 +189,13 @@ public class JSTaintAnalysis {
         taintNodes.add(mockSink);
 
         // fields
-        Iterator<IClass> classIterator = cha.getLoaders()[0].iterateAllClasses();
-        while (classIterator.hasNext()) {
-            IClass cls = classIterator.next();
-            for (IField field : cls.getAllFields()) {
-                taintNodes.add(new JSFieldTaintNode(field.getReference()));
+        for (CGNode cgNode : icfg.getCallGraph()) {
+            for (SSAInstruction instruction : cgNode.getIR().getInstructions()) {
+                if (instruction instanceof SSAFieldAccessInstruction) {
+                    FieldReference fr = ((SSAFieldAccessInstruction) instruction).getDeclaredField();
+                    JSTaintNode node = new JSFieldTaintNode(fr);
+                    taintNodes.add(node);
+                }
             }
         }
 
@@ -308,11 +308,16 @@ public class JSTaintAnalysis {
         public UnaryOperator<BitVectorVariable> getNodeTransferFunction(BasicBlockInContext<IExplodedBasicBlock> node) {
             IExplodedBasicBlock ebb = node.getDelegate();
             SSAInstruction instruction = ebb.getInstruction();
+
+            if (instruction == null) return BitVectorIdentity.instance();
+
             int instructionIndex = ebb.getFirstInstructionIndex();
             CGNode cgNode = node.getNode();
             IMethod method = cgNode.getMethod();
 
             JSTaintNode mediatorTaintNode = new JSInstrutionTaintNode(Pair.make(cgNode, instructionIndex));
+            int mediatorTaintNodeId = taintNodeNumbering.getMappedIndex(mediatorTaintNode);
+
             HashSet<JSTaintNode> defTaintNodes = new HashSet<>();
             for (int i = 0; i < instruction.getNumberOfDefs(); i++)
                 defTaintNodes.add(new JSLocalTaintNode(Pair.make(method.getReference(), instruction.getDef(i))));
@@ -325,23 +330,42 @@ public class JSTaintAnalysis {
             if (instruction instanceof SSAGetInstruction)
                 useTaintNodes.add(new JSFieldTaintNode(((SSAGetInstruction) instruction).getDeclaredField()));
 
+            HashSet<Integer> defTaintNodeIds = new HashSet<>();
+            HashSet<Integer> useTaintNodeIds = new HashSet<>();
+            for (JSTaintNode taintNode : defTaintNodes) {
+                defTaintNodeIds.add(taintNodeNumbering.getMappedIndex(taintNode));
+            }
+            for (JSTaintNode useNode : useTaintNodes) {
+                useTaintNodeIds.add(taintNodeNumbering.getMappedIndex(useNode));
+            }
+
+            // Propagation
+            for (int useNodeId : useTaintNodeIds) {
+                BitVector useNodeValue = taintNodeChain.get(useNodeId);
+                if (useNodeValue != null)
+                    markNodeId(mediatorTaintNodeId, useNodeId);
+            }
+            BitVector mediatorValue = taintNodeChain.get(mediatorTaintNodeId);
+            if (mediatorValue != null) {
+                for (int defNodeId : defTaintNodeIds) {
+                    markNodeId(defNodeId, mediatorTaintNodeId);
+                }
+            }
+
+            BitVector gen = new BitVector();
+            BitVector kill = new BitVector();
+            BitVector defined = new BitVector();
+
             for (JSTaintNode defNode : defTaintNodes) {
-                BitVector defNodeValue = taintNodeChain.get(defNode);
-                if (defNodeValue != null) markNode(mediatorTaintNode, defNode);
+                int defNodeId = taintNodeNumbering.getMappedIndex(defNode);
+                defined.set(defNodeId);
             }
-            if (instruction instanceof SSAPutInstruction && ((SSAPutInstruction) instruction).isStatic()) {
-                // kill all defs of the same static field, and gen this instruction
-                final SSAPutInstruction putInstr = (SSAPutInstruction) instruction;
-                final IField field = cha.resolveField(putInstr.getDeclaredField());
-                assert field != null;
-                BitVector kill = staticField2DefStatements.get(field);
-                BitVector gen = new BitVector();
-                gen.set(taintNodeNumbering.getMappedIndex(Pair.make(cgNode, instructionIndex)));
-                return new BitVectorKillGen(kill, gen);
-            } else {
-                // identity function for non-putstatic instructions
-                return BitVectorIdentity.instance();
+
+            if (mediatorValue != null) {
+                gen = defined;
             }
+
+            return new BitVectorKillGen(kill, gen);
         }
 
         /**
@@ -365,18 +389,80 @@ public class JSTaintAnalysis {
         @Override
         public UnaryOperator<BitVectorVariable> getEdgeTransferFunction(BasicBlockInContext<IExplodedBasicBlock> src,
                                                                         BasicBlockInContext<IExplodedBasicBlock> dst) {
-            if (isCallToReturnEdge(src, dst)) {
-                return BitVectorKillAll.instance();
-            } else {
+            SSAInstruction srcInst = src.getDelegate().getInstruction();
+            SSAInstruction dstInst = dst.getDelegate().getInstruction();
+
+            if (!(srcInst instanceof JavaScriptInvoke) && (src.getNode().equals(dst.getNode()))) {
+                // normal edge
                 return BitVectorIdentity.instance();
             }
-        }
 
-        private boolean isCallToReturnEdge(BasicBlockInContext<IExplodedBasicBlock> src, BasicBlockInContext<IExplodedBasicBlock> dst) {
-            SSAInstruction srcInst = src.getDelegate().getInstruction();
-            return srcInst instanceof SSAAbstractInvokeInstruction && src.getNode().equals(dst.getNode());
-        }
+            if (src.getNode().equals(dst.getNode())) {
+                // call to return
+                return BitVectorIdentity.instance();
+            }
+            else  {
+                if (srcInst instanceof JavaScriptInvoke && dst.isEntryBlock()) {
+                    // call to entry
+                    int numPara = ((JavaScriptInvoke) srcInst).getNumberOfParameters();
+                    int numMethodPara = dst.getNode().getIR().getNumberOfParameters();
+                    if (numPara != numMethodPara && numPara != numMethodPara + 1) {
+                        Util.LOGGER.warning("parameter number mismatch!");
+                        return BitVectorIdentity.instance();
+                    }
 
+                    BitVector gen = new BitVector();
+                    for (int i = 0; i < numMethodPara; i++) {
+                        int paraSrcId = srcInst.getUse(i);
+                        JSTaintNode paraSrcNode = new JSLocalTaintNode(Pair.make(src.getMethod().getReference(), paraSrcId));
+                        int paraSrcNodeId = taintNodeNumbering.getMappedIndex(paraSrcNode);
+
+                        int paraDstId = dst.getNode().getIR().getSymbolTable().getParameter(i);
+                        JSTaintNode paraDstNode = new JSLocalTaintNode(Pair.make(dst.getMethod().getReference(), paraDstId));
+                        int paraDstNodeId = taintNodeNumbering.getMappedIndex(paraDstNode);
+
+                        BitVector paraSrcNodeValue = taintNodeChain.get(paraSrcNodeId);
+                        if (paraSrcNodeValue != null) {
+                            markNodeId(paraDstNodeId, paraSrcNodeId);
+                            gen.set(paraDstNodeId);
+                        }
+                    }
+                    return new BitVectorKillGen(new BitVector(), gen);
+                }
+                else if (src.isExitBlock() && !dst.isExitBlock()) {
+                    // exit to return
+                    SSAInstruction invokeInst = dst.getNode().getIR().getInstructions()[dst.getFirstInstructionIndex() - 1];
+                    if (invokeInst instanceof JavaScriptInvoke) {
+                        int retDstId = invokeInst.getDef();
+                        JSTaintNode retDstNode = new JSLocalTaintNode(Pair.make(dst.getMethod().getReference(), retDstId));
+                        int retDstNodeId = taintNodeNumbering.getMappedIndex(retDstNode);
+
+                        BitVector gen = new BitVector();
+
+                        for (SSAInstruction inst : src.getNode().getIR().getInstructions()) {
+                            if (inst instanceof SSAReturnInstruction) {
+                                for (int i = 0; i < inst.getNumberOfUses(); i++) {
+                                    int retSrcId = inst.getUse(i);
+                                    JSTaintNode retSrcNode = new JSLocalTaintNode(Pair.make(src.getMethod().getReference(), retSrcId));
+                                    int retSrcNodeId = taintNodeNumbering.getMappedIndex(retSrcNode);
+
+                                    BitVector paraSrcNodeValue = taintNodeChain.get(retSrcNodeId);
+                                    if (paraSrcNodeValue != null) {
+                                        markNodeId(retDstNodeId, retSrcNodeId);
+                                        gen.set(retDstNodeId);
+                                    }
+                                }
+                            }
+                        }
+                        return new BitVectorKillGen(new BitVector(), gen);
+                    }
+                    else {
+                        Util.LOGGER.warning("exit-to-return is not pointing to a invoke instruction");
+                    }
+                }
+            }
+            return BitVectorIdentity.instance();
+        }
     }
 
     /**
@@ -397,13 +483,97 @@ public class JSTaintAnalysis {
             assert false;
         }
         if (VERBOSE) {
-            for (BasicBlockInContext<IExplodedBasicBlock> ebb : icfg) {
-                System.out.println(ebb);
-                System.out.println(ebb.getDelegate().getInstruction());
-                System.out.println(solver.getIn(ebb));
-                System.out.println(solver.getOut(ebb));
+            for (List<Integer> path : this.getTaintPathsFrom(taintNodeNumbering.getMappedIndex(mockSource))) {
+                System.out.println("");
+                System.out.println(this.path2String(path, true));
+                System.out.println(this.path2String(path, false));
             }
         }
         return solver;
+    }
+
+    public HashSet<Integer> getTaintMarks(int site) {
+        BitVector bv = taintNodeChain.get(site);
+        HashSet<Integer> marks = new HashSet<>();
+
+        if (bv == null) {
+            return marks;
+        }
+
+        for (int i = 0; i < bv.length(); i++) {
+            if (bv.get(i)) {
+                marks.add(i);
+            }
+        }
+        return marks;
+    }
+
+    public HashSet<Integer> getMarkedSites(int mark) {
+        HashSet<Integer> sites = new HashSet<>();
+
+        for (int site : taintNodeChain.keySet()) {
+            BitVector marks = taintNodeChain.get(site);
+            if (marks != null && marks.get(mark)) sites.add(site);
+        }
+
+        return sites;
+    }
+
+    public Set<List<Integer>> getTaintPathsFrom(Integer sourceId) {
+        HashSet<List<Integer>> paths = new HashSet<>();
+
+        HashSet<Integer> markedSites = this.getMarkedSites(sourceId);
+
+        if (markedSites.isEmpty()) {
+            List<Integer> path = new ArrayList<>();
+            path.add(sourceId);
+            paths.add(path);
+        }
+        else {
+            for (int site : markedSites) {
+                Set<List<Integer>> succPaths = getTaintPathsFrom(site);
+                for (List<Integer> path : succPaths) {
+                    path.add(sourceId);
+                }
+                paths.addAll(succPaths);
+            }
+        }
+
+        return paths;
+    }
+
+    public Set<List<Integer>> getTaintPathsTo(Integer sinkId) {
+        HashSet<List<Integer>> paths = new HashSet<>();
+
+        HashSet<Integer> taintMarks = this.getTaintMarks(sinkId);
+
+        if (taintMarks.isEmpty()) {
+            List<Integer> path = new ArrayList<>();
+            path.add(sinkId);
+            paths.add(path);
+        }
+        else {
+            for (int mark : taintMarks) {
+                Set<List<Integer>> prevPaths = getTaintPathsTo(mark);
+                for (List<Integer> path : prevPaths) {
+                    path.add(sinkId);
+                }
+                paths.addAll(prevPaths);
+            }
+        }
+
+        return paths;
+    }
+
+    public String path2String(List<Integer> path, boolean numbered) {
+        String numberPathStr = "";
+        String pathStr = "";
+        for (int node : path) {
+            String nodeStr = taintNodeNumbering.getMappedObject(node).toString();
+            numberPathStr = String.format("%d --> %s", node, numberPathStr);
+            pathStr = String.format("%s --> %s", nodeStr, pathStr);
+        }
+        if (numbered) return numberPathStr;
+        else return pathStr;
     }
 }

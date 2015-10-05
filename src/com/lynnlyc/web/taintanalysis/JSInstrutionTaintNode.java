@@ -26,8 +26,8 @@ public class JSInstrutionTaintNode extends JSTaintNode {
     }
 
     public String toString() {
-        return String.format("%s << %s:%d",
+        return String.format("{{instruction:%d|%s|%s}}", value.snd,
                 value.fst.getIR().getInstructions()[value.snd],
-                value.fst.getMethod().getSignature(), value.snd);
+                value.fst.getMethod().getSignature());
     }
 }

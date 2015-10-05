@@ -26,6 +26,6 @@ public class JSFieldTaintNode extends JSTaintNode {
     }
 
     public String toString() {
-        return String.format("%s", value.getSignature());
+        return String.format("{{field|%s}}", value.getSignature());
     }
 }

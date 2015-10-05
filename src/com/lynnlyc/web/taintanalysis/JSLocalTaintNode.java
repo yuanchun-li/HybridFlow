@@ -28,6 +28,6 @@ public class JSLocalTaintNode extends JSTaintNode {
     }
 
     public String toString() {
-        return String.format("%d << %s", value.snd, value.fst.getSignature());
+        return String.format("{{local:%d|%s}}", value.snd, value.fst.getSignature());
     }
 }

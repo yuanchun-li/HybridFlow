@@ -88,12 +88,11 @@ public class WebManager {
     public void runTaintAnalysis(CallGraph cg) {
         JSTaintAnalysis jsTaint = new JSTaintAnalysis(cg, sourceSinks);
         jsTaint.analyze();
-        printIRs(cg);
+//        printIRs(cg);
     }
 
     public static void printIRs(CallGraph cg) {
         IClassHierarchy cha = cg.getClassHierarchy();
-        IClassLoader[] loaders = cha.getLoaders();
         for(CGNode n : cg) {
             IR ir = n.getIR();
             System.out.println(ir);
