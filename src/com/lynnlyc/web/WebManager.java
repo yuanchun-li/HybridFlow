@@ -5,9 +5,7 @@ import com.ibm.wala.cast.ir.ssa.AstIRFactory;
 import com.ibm.wala.cast.ir.translator.TranslatorToCAst;
 import com.ibm.wala.cast.js.html.WebPageLoaderFactory;
 import com.ibm.wala.cast.js.html.WebUtil;
-import com.ibm.wala.cast.js.ipa.callgraph.JSCFABuilder;
-import com.ibm.wala.cast.js.ipa.callgraph.JSCallGraphUtil;
-import com.ibm.wala.cast.js.ipa.callgraph.PropertyNameContextSelector;
+import com.ibm.wala.cast.js.ipa.callgraph.*;
 import com.ibm.wala.cast.js.ipa.callgraph.correlations.extraction.CorrelatedPairExtractorFactory;
 import com.ibm.wala.cast.js.loader.JavaScriptLoader;
 import com.ibm.wala.cast.js.loader.JavaScriptLoaderFactory;
@@ -19,13 +17,13 @@ import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.SourceModule;
 import com.ibm.wala.classLoader.SourceURLModule;
+import com.ibm.wala.ipa.callgraph.AnalysisOptions;
 import com.ibm.wala.ipa.callgraph.CGNode;
 import com.ibm.wala.ipa.callgraph.CallGraph;
+import com.ibm.wala.ipa.callgraph.Entrypoint;
 import com.ibm.wala.ipa.callgraph.propagation.PropagationCallGraphBuilder;
 import com.ibm.wala.ipa.cha.IClassHierarchy;
-import com.ibm.wala.ssa.IR;
-import com.ibm.wala.ssa.IRFactory;
-import com.ibm.wala.ssa.SSAInstruction;
+import com.ibm.wala.ssa.*;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.HashSetFactory;
@@ -114,6 +112,12 @@ public class WebManager {
             JavaScriptLoader.addBootstrapFile(WebUtil.preamble);
             scripts.add(JSCallGraphBuilderUtil.getPrologueFile("prologue.js"));
             scripts.add(JSCallGraphBuilderUtil.getPrologueFile("preamble.js"));
+            for (File jsFile : jsFiles) {
+                try {
+                    scripts.add(CAstCallGraphUtil.makeSourceModule(jsFile.toURI().toURL(), jsFile.getName()));
+                } catch (Exception ignored) {
+                }
+            }
             try {
                 scripts.addAll(WebUtil.extractScriptFromHTML(possible_url, true).fst);
             } catch (TranslatorToCAst.Error e) {
@@ -121,18 +125,15 @@ public class WebManager {
                 scripts.add(dummy);
                 ((CAstAbstractLoader) loaders.getTheLoader()).addMessage(dummy, e.warning);
             }
-            for (File jsFile : jsFiles) {
-                try {
-                    scripts.add(CAstCallGraphUtil.makeSourceModule(jsFile.toURI().toURL(), jsFile.getName()));
-                } catch (Exception ignored) {
-                }
-            }
             SourceModule[] scriptsArray = scripts.toArray(new SourceModule[scripts.size()]);
 
             JSCFABuilder builder = JSCallGraphBuilderUtil.makeCGBuilder(loaders, scriptsArray, builderType, irFactory);
             builder.setContextSelector(new PropertyNameContextSelector(builder.getAnalysisCache(), 2, builder.getContextSelector()));
             builder.setBaseURL(possible_url);
-            cg = builder.makeCallGraph(builder.getOptions());
+            AnalysisOptions options = builder.getOptions();
+//            options.setTraceStringConstants(true);
+//            options.setUseLexicalScopingForGlobals(true);
+            cg = builder.makeCallGraph(options);
         } catch (IOException | WalaException | CancelException e) {
             e.printStackTrace();
         }
