@@ -61,5 +61,6 @@ examples
 output
 temp
 classes
+target
 dependency-reduced-pom.xml
 *META-INF
