@@ -10,10 +10,9 @@
  *******************************************************************************/
 package com.lynnlyc.web.taintanalysis;
 
-import java.lang.invoke.CallSite;
+import java.io.PrintStream;
 import java.util.*;
 
-import com.ibm.wala.cast.ipa.callgraph.AstCallGraph;
 import com.ibm.wala.cast.ir.ssa.AstLexicalAccess;
 import com.ibm.wala.cast.ir.ssa.AstLexicalRead;
 import com.ibm.wala.cast.js.ssa.JavaScriptInvoke;
@@ -32,7 +31,6 @@ import com.ibm.wala.fixpoint.BitVectorVariable;
 import com.ibm.wala.fixpoint.UnaryOperator;
 import com.ibm.wala.ipa.callgraph.CGNode;
 import com.ibm.wala.ipa.callgraph.CallGraph;
-import com.ibm.wala.ipa.callgraph.Context;
 import com.ibm.wala.ipa.callgraph.impl.Everywhere;
 import com.ibm.wala.ipa.callgraph.impl.ExplicitCallGraph;
 import com.ibm.wala.ipa.cfg.BasicBlockInContext;
@@ -41,7 +39,6 @@ import com.ibm.wala.ipa.cha.IClassHierarchy;
 import com.ibm.wala.ssa.*;
 import com.ibm.wala.ssa.analysis.IExplodedBasicBlock;
 import com.ibm.wala.types.FieldReference;
-import com.ibm.wala.types.MethodReference;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.collections.HashMapFactory;
 import com.ibm.wala.util.collections.ObjectArrayMapping;
@@ -49,7 +46,6 @@ import com.ibm.wala.util.collections.Pair;
 import com.ibm.wala.util.intset.BitVector;
 import com.ibm.wala.util.intset.OrdinalSetMapping;
 import com.lynnlyc.Util;
-import org.jf.util.StringUtils;
 
 /**
  * Computes interprocedural reaching definitions for static fields in a context-insensitive manner.
@@ -78,13 +74,13 @@ public class JSTaintAnalysis {
 
     private final Map<Integer, BitVector> taintNodeChain = HashMapFactory.make();
 
-    private final HashSet<SourceSink> sourceSinks;
+    private final Collection<HTMLSourceSink> sourceSinks;
 
     private final JSTaintNode mockSource = new JSInitTaintNode("mockSource");
 
     private final JSTaintNode mockSink = new JSInitTaintNode("mockSink");
 
-    public JSTaintAnalysis(CallGraph cg, HashSet<SourceSink> sourceSinks) {
+    public JSTaintAnalysis(CallGraph cg, Collection<HTMLSourceSink> sourceSinks) {
         this.cg = (ExplicitCallGraph) cg;
         this.cha = cg.getClassHierarchy();
         this.enhanceCG();
@@ -168,7 +164,7 @@ public class JSTaintAnalysis {
 
                     JSTaintNode node = new JSFieldTaintNode(fr);
 
-                    for (SourceSink sourceSink : this.getMatchedSourceAndSink(fieldTags)) {
+                    for (HTMLSourceSink sourceSink : this.getMatchedSourceAndSink(fieldTags)) {
                         if (sourceSink.isSource) markNode(node, mockSource);
                         else markNode(mockSink, node);
                     }
@@ -181,11 +177,11 @@ public class JSTaintAnalysis {
             HashSet<String> methodTags = new HashSet<>();
             methodTags.add(method.getSignature());
 //            methodTags.add(method.getDeclaringClass().getReference().toString());
-            HashSet<SourceSink> methodSourceSinks = this.getMatchedSourceAndSink(methodTags);
+            HashSet<HTMLSourceSink> methodSourceSinks = this.getMatchedSourceAndSink(methodTags);
 
             boolean argsAreSource = false, retIsSink = false;
 
-            for (SourceSink sourceSink : methodSourceSinks) {
+            for (HTMLSourceSink sourceSink : methodSourceSinks) {
                 if (sourceSink.isArgs && sourceSink.isSource) argsAreSource = true;
                 if (!sourceSink.isArgs && !sourceSink.isSource) retIsSink = true;
             }
@@ -203,7 +199,7 @@ public class JSTaintAnalysis {
                     JSTaintNode taintNode = new JSInstrutionTaintNode(instPair);
                     HashSet<String> invokeMethodTags = this.invokeInstTags.get(instPair);
                     boolean argsAreSink = false, retIsSource = false;
-                    for (SourceSink sourceSink : this.getMatchedSourceAndSink(invokeMethodTags)) {
+                    for (HTMLSourceSink sourceSink : this.getMatchedSourceAndSink(invokeMethodTags)) {
                         if (sourceSink.isSource && !sourceSink.isArgs) retIsSource = true;
                         if (!sourceSink.isSource && sourceSink.isArgs) argsAreSink = true;
                     }
@@ -244,9 +240,9 @@ public class JSTaintAnalysis {
         bv.set(markId);
     }
 
-    private HashSet<SourceSink> getMatchedSourceAndSink(HashSet<String> tags) {
-        HashSet<SourceSink> matchedSourceSinks = new HashSet<>();
-        for (SourceSink sourceSink : sourceSinks) {
+    private HashSet<HTMLSourceSink> getMatchedSourceAndSink(HashSet<String> tags) {
+        HashSet<HTMLSourceSink> matchedSourceSinks = new HashSet<>();
+        for (HTMLSourceSink sourceSink : sourceSinks) {
             if (sourceSink.matches(tags)) matchedSourceSinks.add(sourceSink);
         }
         return matchedSourceSinks;
@@ -575,13 +571,9 @@ public class JSTaintAnalysis {
             // this shouldn't happen
             assert false;
         }
+
         if (VERBOSE) {
-            for (List<Integer> path : this.getSource2SinkTaintPaths()) {
-                System.out.println("");
-                System.out.println(this.path2String(path, true));
-                System.out.println(this.path2String(path, false));
-                System.out.println(this.prettyPrintPath(path));
-            }
+            this.dumpResult(System.out);
         }
         return solver;
     }
@@ -659,13 +651,15 @@ public class JSTaintAnalysis {
         return paths;
     }
 
+    private Set<List<Integer>> result = null;
     public Set<List<Integer>> getSource2SinkTaintPaths() {
-        Set<List<Integer>> result = new HashSet<>();
+        if (result != null) return result;
+        result = new HashSet<>();
 
         int sourceNodeId = taintNodeNumbering.getMappedIndex(mockSource);
         int sinkNodeId = taintNodeNumbering.getMappedIndex(mockSink);
 
-        Set<List<Integer>> paths = this.getTaintPathsFrom(sourceNodeId);
+        Set<List<Integer>> paths = this.getTaintPathsTo(sinkNodeId);
         for (List<Integer> path : paths) {
             if (path.size() <= 3) continue;
             Integer head = path.get(0);
@@ -745,6 +739,15 @@ public class JSTaintAnalysis {
             }
         }
         return tagStr;
+    }
+
+    public void dumpResult(PrintStream ps) {
+        for (List<Integer> path : this.getSource2SinkTaintPaths()) {
+            ps.println("\nsource to sink path:");
+            ps.println(this.path2String(path, true));
+            ps.println(this.path2String(path, false));
+            ps.println(this.prettyPrintPath(path));
+        }
     }
 }
 

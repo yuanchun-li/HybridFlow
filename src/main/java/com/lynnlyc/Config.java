@@ -85,31 +85,34 @@ public class Config {
 
     public static boolean parseArgs(String[] args) {
         org.apache.commons.cli.Options options = new org.apache.commons.cli.Options();
-        Option quiet = new Option("quiet", "be extra quiet");
-        Option debug = new Option("debug", "print debug information");
+//        Option quiet = new Option("quiet", "be extra quiet");
+//        Option debug = new Option("debug", "print debug information");
         Option outputDir = OptionBuilder.withArgName("directory").isRequired()
                 .hasArg().withDescription("path to output dir").create('d');
         Option appPath = OptionBuilder.withArgName("file").isRequired()
                 .hasArg().withDescription("path to target app").create("app");
-        Option forceAndroidJar = OptionBuilder.withArgName("file").isRequired()
-                .hasArg().withDescription("path to android.jar").create("sdk");
-        Option webDir = OptionBuilder.withArgName("directory")
-                .hasArg().withDescription("path to webpages").create("web");
-        Option outFormat = OptionBuilder.withArgName("jimple or dex")
-                .hasArg().withDescription("output format, default is dex").create('f');
+//        Option forceAndroidJar = OptionBuilder.withArgName("file").isRequired()
+//                .hasArg().withDescription("path to android.jar").create("sdk");
+        Option androidPlatformDir = OptionBuilder.withArgName("directory").isRequired()
+                .hasArg().withDescription("path to android sdk").create("sdk");
+//        Option webDir = OptionBuilder.withArgName("directory")
+//                .hasArg().withDescription("path to webpages").create("web");
+//        Option outFormat = OptionBuilder.withArgName("jimple or dex")
+//                .hasArg().withDescription("output format, default is dex").create('f');
         Option sourceToSinkOpt = OptionBuilder.withArgName("file").isRequired()
                 .hasArg().withDescription("definitions of sources and sinks").create("source_sink");
         Option jsaOpt = OptionBuilder.withArgName("true or false").hasArg()
-                .withDescription("run string analysis (default is false)").create("jsa");
+                .withDescription("run string analysis (default is true)").create("jsa");
         Option ptaOpt = OptionBuilder.withArgName("true or false").hasArg()
                 .withDescription("run point-to analysis (default is true)").create("pta");
-        options.addOption(quiet);
-        options.addOption(debug);
+//        options.addOption(quiet);
+//        options.addOption(debug);
         options.addOption(outputDir);
         options.addOption(appPath);
-        options.addOption(forceAndroidJar);
-        options.addOption(webDir);
-        options.addOption(outFormat);
+//        options.addOption(forceAndroidJar);
+        options.addOption(androidPlatformDir);
+//        options.addOption(webDir);
+//        options.addOption(outFormat);
         options.addOption(sourceToSinkOpt);
         options.addOption(jsaOpt);
         options.addOption(ptaOpt);
@@ -124,8 +127,10 @@ public class Config {
             if (!appFile.exists()) {
                 throw new ParseException("invalid app file path");
             }
-            if (cmd.hasOption("sdk"))
-                Config.forceAndroidJarPath = cmd.getOptionValue("sdk");
+            if (cmd.hasOption("sdk")) {
+//                Config.forceAndroidJarPath = cmd.getOptionValue("sdk");
+                Config.androidPlatformDir = cmd.getOptionValue("sdk") + "/platforms";
+            }
             if (cmd.hasOption("web")) Config.htmlDirPath = cmd.getOptionValue("web");
             if (cmd.hasOption('f')) Config.outputFormat = cmd.getOptionValue('f');
             if (cmd.hasOption("debug")) Util.LOGGER.setLevel(Level.ALL);

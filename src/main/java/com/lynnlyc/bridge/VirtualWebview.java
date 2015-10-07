@@ -43,53 +43,14 @@ public class VirtualWebview {
 
     private HashSet<Bridge> bridges;
 
-//    private HashSet<JsInterfaceBridge> jsInterfaceBridges;
-//    private HashSet<JavascriptBridge> javascriptBridges;
-//    private HashSet<UrlBridge> urlBridges;
-//    private HashSet<EventBridge> eventBridges;
-//    private HashSet<WebViewClientBridge> webViewClientBridges;
-
     private VirtualWebview() {
         webviewClasses = new HashSet<>();
         loadUrlContexts = new HashSet<>();
         bridges = new HashSet<>();
         mockFields = new HashMap<>();
-//        jsInterfaceBridges = new HashSet<>();
-//        javascriptBridges = new HashSet<>();
-//        urlBridges = new HashSet<>();
-//        eventBridges = new HashSet<>();
-//        webViewClientBridges = new HashSet<>();
     }
 
     public void dump(PrintStream os) {
-//        os.println("======Virtual Webview Bridges======");
-//        os.println("------    WebViewClasses     ------");
-//        for (SootClass sootClass : this.webviewClasses) {
-//            os.println(sootClass);
-//        }
-//        os.println("------   JsInterfaceBridges  ------");
-//        for (JsInterfaceBridge jsInterfaceBridge : jsInterfaceBridges) {
-//            os.println(jsInterfaceBridge);
-//        }
-//
-//        os.println("------   JavascriptBridges   ------");
-//        for (JavascriptBridge javascriptBridge : javascriptBridges) {
-//            os.println(javascriptBridge);
-//        }
-//
-//        os.println("------      UrlBridges       ------");
-//        for (UrlBridge urlBridge : urlBridges) {
-//            os.println(urlBridge);
-//        }
-//        os.println("-----    WebViewClientBridges   -----");
-//        for (WebViewClientBridge webViewClientBridge : webViewClientBridges) {
-//            os.println(webViewClientBridge);
-//        }
-//        os.println("------     EventBridges      ------");
-//        for (EventBridge eventBridge : eventBridges) {
-//            os.println(eventBridge);
-//        }
-//        os.println("======     End of Bridges    ======");
         for (Bridge bridge : bridges) {
             os.println(bridge);
         }
@@ -155,21 +116,12 @@ public class VirtualWebview {
 
     private Local getTaintedLocal(Type t) {
         return taintedObject;
-//        Local castedTaint = getNewLocal(t);
-//
-//        mockMainBody.getUnits().addLast(
-//                Jimple.v().newAssignStmt(castedTaint, taintedObject));
-//
-//        return castedTaint;
     }
 
     public void instrumentBridgeToApp() {
         Scene.v().loadClassAndSupport("java.lang.Object");
         objectClass = Scene.v().getSootClass("java.lang.Object");
 
-//        Scene.v().loadClassAndSupport("android.app.Service");
-//        SootClass serviceClass = Scene.v().getSootClass("android.app.Service");
-//        SootClass bundleClass = Scene.v().getSootClass("android.os.Bundle");
         SootClass threadClass = Scene.v().getSootClass("java.lang.Thread");
 
         webViewBridgeClass = new SootClass(Config.projectName, Modifier.PUBLIC);

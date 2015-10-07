@@ -51,50 +51,6 @@ public class Util {
     public static final String setWebChromeClientSig =
             "<android.webkit.WebView: void setWebChromeClient(android.webkit.WebChromeClient)>";
 
-	
-	public static void printIRsForHTML(String filename) throws IllegalArgumentException, MalformedURLException, IOException,
-	CancelException, WalaException, Error {
-		// use Rhino to parse JavaScript
-		JSCallGraphUtil.setTranslatorFactory(new CAstRhinoTranslatorFactory());
-		// add model for DOM APIs
-		JavaScriptLoader.addBootstrapFile(WebUtil.preamble);
-		URL url = (new File(filename)).toURI().toURL();
-		Pair<Set<MappedSourceModule>, File> p = WebUtil.extractScriptFromHTML(url, true);
-		SourceModule[] scripts = p.fst.toArray(new SourceModule[] {});
-		JavaScriptLoaderFactory loaders = new WebPageLoaderFactory(JSCallGraphUtil.getTranslatorFactory());
-		CAstAnalysisScope scope = new CAstAnalysisScope(scripts, loaders, Collections.singleton(JavaScriptLoader.JS));
-		IClassHierarchy cha = ClassHierarchy.make(scope, loaders, JavaScriptLoader.JS);
-		com.ibm.wala.cast.js.util.Util.checkForFrontEndErrors(cha);
-		printIRsForCHA(cha, new Predicate<String>() {
-
-			@Override
-			public boolean test(String t) {
-				return t.startsWith("Lprologue.js") || t.startsWith("Lpreamble.js");
-			}
-		});
-	}
-	
-	protected static void printIRsForCHA(IClassHierarchy cha, Predicate<String> exclude) {
-		// for constructing IRs
-		IRFactory<IMethod> factory = AstIRFactory.makeDefaultFactory();
-		for (IClass klass : cha) {
-			// ignore models of built-in JavaScript methods
-			String name = klass.getName().toString();
-			if (exclude.test(name)) continue;
-			// get the IMethod representing the code
-			IMethod m = klass.getMethod(AstMethodReference.fnSelector);
-			if (m != null) {
-				IR ir = factory.makeIR(m, Everywhere.EVERYWHERE, new SSAOptions());
-				System.out.println(ir);
-		        if (m instanceof AstMethod) {
-		        	AstMethod astMethod = (AstMethod) m;
-		        	System.out.println(astMethod.getSourcePosition());
-		        }
-		        System.out.println("===================================================\n");
-			}
-		}
-	}
-
 	public static List<SootMethod> findEntryPoints() {
 		ArrayList<SootMethod> entries = new ArrayList<SootMethod>();
 		for (SootClass cls : Scene.v().getApplicationClasses()) {
@@ -114,10 +70,6 @@ public class Util {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd-hhmmss");
         Date date = new Date(timeMillis);
         return sdf.format(date);
-    }
-
-    public static void output() {
-        PackManager.v().writeOutput();
     }
 
 	public static void logException(Exception e) {

@@ -37,14 +37,13 @@ public class UrlBridge extends Bridge {
 
     @Override
     public void export2web() {
-        VirtualWebview.v().addPossibleURL(this.url);
         try {
             String url_file_name = String.format("%s/url_page_%d.html",
                     Config.htmlDirPath, this.url_id);
             URL url = new URL(this.url);
             File url_file = new File(url_file_name);
             FileUtils.copyURLToFile(url, url_file);
-            WebManager.v().addPossibleURL(url);
+            VirtualWebview.v().addPossibleURL(this.url);
         } catch (MalformedURLException e) {
             Util.LOGGER.warning("malformed url: " + this.url);
         } catch (UnknownHostException e) {

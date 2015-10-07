@@ -40,7 +40,6 @@ public class JavascriptBridge extends Bridge {
         try {
             File script_file = new File(script_file_name);
             FileUtils.write(script_file, script);
-            WebManager.v().addTaintJsFile(script_file);
         } catch (IOException e) {
             e.printStackTrace();
         }

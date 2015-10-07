@@ -13,29 +13,26 @@ import com.ibm.wala.cast.js.translator.CAstRhinoTranslatorFactory;
 import com.ibm.wala.cast.js.translator.JavaScriptTranslatorFactory;
 import com.ibm.wala.cast.loader.CAstAbstractLoader;
 import com.ibm.wala.cast.tree.rewrite.CAstRewriterFactory;
-import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.SourceModule;
 import com.ibm.wala.classLoader.SourceURLModule;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
 import com.ibm.wala.ipa.callgraph.CGNode;
 import com.ibm.wala.ipa.callgraph.CallGraph;
-import com.ibm.wala.ipa.callgraph.Entrypoint;
-import com.ibm.wala.ipa.callgraph.propagation.PropagationCallGraphBuilder;
 import com.ibm.wala.ipa.cha.IClassHierarchy;
 import com.ibm.wala.ssa.*;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.HashSetFactory;
-import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import com.lynnlyc.web.taintanalysis.JSTaintAnalysis;
-import com.lynnlyc.web.taintanalysis.SourceSink;
+import com.lynnlyc.web.taintanalysis.HTMLSourceSink;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
+import java.io.PrintStream;
 import java.net.URL;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -44,9 +41,9 @@ import java.util.Set;
  * Package: webview-flow
  */
 public class WebManager {
-    public HashSet<File> taint_js_files;
-    public HashSet<URL> possible_urls;
-    public HashSet<SourceSink> sourceSinks;
+    private Collection<File> taintJsFiles;
+    private Collection<URL> possibleURLs;
+    private Collection<HTMLSourceSink> sourceSinks;
 
     public static WebManager v() {
         if (webManager == null) {
@@ -57,35 +54,42 @@ public class WebManager {
 
     private static WebManager webManager = null;
     private WebManager() {
-        taint_js_files = new HashSet<>();
-        possible_urls = new HashSet<>();
+        taintJsFiles = new HashSet<>();
+        possibleURLs = new HashSet<>();
         sourceSinks = new HashSet<>();
     }
 
-    public void addTaintJsFile(File taintJs) {
-        taint_js_files.add(taintJs);
+    public void setTaintJsFiles(Collection<File> taintJsFiles) {
+        this.taintJsFiles = taintJsFiles;
     }
 
     public void addPossibleURL(URL possible_url) {
-        possible_urls.add(possible_url);
+        possibleURLs.add(possible_url);
     }
 
-    public void setSourceSinks(HashSet<String> htmlSourceSinks) {
+    public void setSourceSinks(Collection<String> htmlSourceSinks) {
         for (String htmlSourceSinkStr : htmlSourceSinks) {
-            this.sourceSinks.add(new SourceSink(htmlSourceSinkStr));
+            this.sourceSinks.add(new HTMLSourceSink(htmlSourceSinkStr));
         }
     }
 
-    public void runTaintAnalysis() {
-        for (URL possible_url : possible_urls) {
-            CallGraph cg = generateCG(possible_url, taint_js_files);
-            runTaintAnalysis(cg);
+    public void runTaintAnalysis(PrintStream ps) {
+        ps.println("analysis result:");
+        for (URL possible_url : possibleURLs) {
+            try {
+                CallGraph cg = generateCG(possible_url, taintJsFiles);
+                ps.println("\n\nrunning taint analysis on URL: " + possible_url.toString());
+                runTaintAnalysis(cg, ps);
+            } catch (Exception e) {
+                Util.LOGGER.warning("analysis failed on URL: " + possible_url.toString());
+            }
         }
     }
 
-    public void runTaintAnalysis(CallGraph cg) {
+    public void runTaintAnalysis(CallGraph cg, PrintStream ps) {
         JSTaintAnalysis jsTaint = new JSTaintAnalysis(cg, sourceSinks);
         jsTaint.analyze();
+        jsTaint.dumpResult(ps);
 //        printIRs(cg);
     }
 
@@ -97,7 +101,7 @@ public class WebManager {
         }
     }
 
-    public CallGraph generateCG(URL possible_url, HashSet<File> jsFiles) {
+    public CallGraph generateCG(URL possible_url, Collection<File> jsFiles) {
         CallGraph cg = null;
         try {
             Util.LOGGER.info("Analyzing " + possible_url.toString());
