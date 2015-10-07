@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.ibm.wala</groupId>
+  <artifactId>com.ibm.wala.cast.js</artifactId>
+  <versioning>
+    <release>1.3.4</release>
+    <versions>
+      <version>1.3.4</version>
+    </versions>
+    <lastUpdated>20151007114631</lastUpdated>
+  </versioning>
+</metadata>
