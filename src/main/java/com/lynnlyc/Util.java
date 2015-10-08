@@ -33,10 +33,12 @@ import com.ibm.wala.util.Predicate;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.Pair;
 import com.lynnlyc.app.AppManager;
-import soot.PackManager;
-import soot.Scene;
-import soot.SootClass;
-import soot.SootMethod;
+import com.lynnlyc.app.FlowDroidCaller;
+import com.lynnlyc.bridge.VirtualWebview;
+import com.lynnlyc.merger.Merger;
+import com.lynnlyc.web.HTMLTaintAnalysisCaller;
+import org.apache.commons.io.FileUtils;
+import soot.*;
 import soot.options.Options;
 
 public class Util {
@@ -119,5 +121,53 @@ public class Util {
 			len--;
 		}
 		return ((st > 0) || (len < value.length())) ? value.substring(st, len) : value;
+	}
+
+	public static void buildBridge() {
+        if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeBuildBridge)))
+            return;
+		if (!(Config.setUpFileStructure() && Config.readSourceAndSink()))
+			return;
+        Util.LOGGER.info("building bridge");
+		Config.configSoot();
+		AppManager appManager = AppManager.v();
+
+		if (Config.runPTA)
+			appManager.runPTA();
+		if (Config.runJSA) {
+			appManager.runJSA();
+			G.reset();
+			Config.configSoot();
+			appManager.prepare();
+		}
+
+		appManager.generateBridges();
+
+		VirtualWebview.v().dump(Config.getBridgePs());
+		VirtualWebview.v().generateJavaSideResult();
+		VirtualWebview.v().generateHTMLSideResult();
+	}
+
+	public static void runTaintAnalysis() {
+        if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeRunTaintAnalysis)))
+            return;
+        Util.LOGGER.info("running taint analysis");
+		String javaTargetDir = Config.workingDirPath + "/java";
+		String htmlTargetDir = Config.workingDirPath + "/html";
+
+		FlowDroidCaller.v().run(javaTargetDir);
+		HTMLTaintAnalysisCaller.v().run(htmlTargetDir);
+	}
+
+	public static void mergeTaintFlow() {
+        if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeMergeTaintFlow)))
+            return;
+        Util.LOGGER.info("merging taint flow");
+		File outputFile = FileUtils.getFile(Config.workingDirPath, "AnalysisResult.txt");
+		try {
+			Merger.v().merge(Config.workingDirPath, new PrintStream(new FileOutputStream(outputFile)));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 }

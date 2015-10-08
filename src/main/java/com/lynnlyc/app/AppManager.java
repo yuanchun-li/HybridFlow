@@ -55,11 +55,6 @@ public class AppManager {
     public void prepare() {
         Util.LOGGER.info("preparing app analysis");
 
-        if (!Config.isInitialized) {
-            Util.LOGGER.warning("Configuration not initialized");
-            return;
-        }
-
         Scene.v().loadNecessaryClasses();
 
         originApplicationClasses = new ArrayList<>();
@@ -327,6 +322,7 @@ public class AppManager {
                                     urlStr = urlValue.getValue().toString();
                                     urlStr = Util.trimQuotation(urlStr);
                                 }
+
                                 if (urlStr.contains("javascript:")) {
                                     VirtualWebview.v().addBridge(new JavascriptBridge(context, urlStr));
                                 } else {
@@ -347,13 +343,14 @@ public class AppManager {
                                 Value interfaceObj = expr.getArg(0);
                                 HashSet<Type> possibleTypes = new HashSet<Type>();
 
-                                if (this.pta == null) {
-                                    possibleTypes.add(interfaceObj.getType());
-                                }
-                                else {
+                                if (this.pta != null) {
                                     PointsToSet interfaceClass = this.pta.reachingObjects((Local) interfaceObj);
                                     possibleTypes.addAll(interfaceClass.possibleTypes());
                                 }
+                                if (possibleTypes.isEmpty()) {
+                                    possibleTypes.add(interfaceObj.getType());
+                                }
+
                                 for (Type possibleType : possibleTypes) {
                                     if (!(possibleType instanceof RefType))
                                         continue;

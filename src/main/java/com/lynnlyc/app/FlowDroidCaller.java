@@ -17,6 +17,9 @@ public class FlowDroidCaller {
     private String androidPlatformHome;
     private File targetDirFile;
     private File flowDroidResult;
+    private File flowdroidJar;
+    private File callbacksTxt;
+    private File wrapperTxt;
 
     private static String usage = "usage: FlowDroidCaller.main <targetDir> <androidPlatformDir>";
 
@@ -67,18 +70,28 @@ public class FlowDroidCaller {
         this.flowDroidResult = FileUtils.getFile(this.targetDirFile, "TaintAnalysis.log");
         this.androidPlatformHome = Config.androidPlatformDir;
 
+        this.flowdroidJar = new File(targetDirFile, "FlowDroid.jar");
+        this.callbacksTxt = new File(targetDirFile, "AndroidCallbacks.txt");
+        this.wrapperTxt = new File(targetDirFile, "EasyTaintWrapperSource.txt");
+
         try {
             FileUtils.copyURLToFile(getClass().getResource("/flowdroid/FlowDroid.jar"),
-                    new File(targetDirFile, "FlowDroid.jar"));
+                    this.flowdroidJar);
             FileUtils.copyURLToFile(getClass().getResource("/flowdroid/AndroidCallbacks.txt"),
-                    new File(targetDirFile, "AndroidCallbacks.txt"));
+                    this.callbacksTxt);
             FileUtils.copyURLToFile(getClass().getResource("/flowdroid/EasyTaintWrapperSource.txt"),
-                    new File(targetDirFile, "EasyTaintWrapperSource.txt"));
+                    this.wrapperTxt);
         } catch (IOException e) {
             e.printStackTrace();
             return false;
         }
         return true;
+    }
+
+    private void cleanTargetDir() {
+        FileUtils.deleteQuietly(this.flowdroidJar);
+        FileUtils.deleteQuietly(this.callbacksTxt);
+        FileUtils.deleteQuietly(this.wrapperTxt);
     }
 
     public boolean run(String targetDir) {
@@ -96,6 +109,7 @@ public class FlowDroidCaller {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+        this.cleanTargetDir();
         return true;
     }
 
