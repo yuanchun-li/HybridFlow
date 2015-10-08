@@ -46,6 +46,7 @@ import com.ibm.wala.util.collections.Pair;
 import com.ibm.wala.util.intset.BitVector;
 import com.ibm.wala.util.intset.OrdinalSetMapping;
 import com.lynnlyc.Util;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * Computes interprocedural reaching definitions for static fields in a context-insensitive manner.
@@ -728,17 +729,16 @@ public class JSTaintAnalysis {
     }
 
     public static String getTagStr(HashSet<String> tags) {
-        String tagStr = "T";
+        HashSet<String> filteredTags = new HashSet<>();
         for (String tag : tags) {
-            for (String tagSeg : tag.split(" ")) {
-                if (tagSeg.startsWith("LRoot") || tagSeg.startsWith("Lprologue")
+            for (String tagSeg : tag.split(" |\\.|#|:")) {
+                if (tagSeg.startsWith("LRoot") || tagSeg.startsWith("Lprologue") || tagSeg.length() == 0
                         || tagSeg.startsWith("Lpreamble") || tagSeg.startsWith("__WALA__"))
                     continue;
-                tagStr += "/";
-                tagStr += tagSeg;
+                filteredTags.add(tagSeg);
             }
         }
-        return tagStr;
+        return StringUtils.join(filteredTags, '.');
     }
 
     public void dumpResult(PrintStream ps) {
