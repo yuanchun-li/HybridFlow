@@ -31,6 +31,12 @@ public class JsInterfaceBridge extends Bridge {
         for (SootMethod m : this.interfaceMethods) {
             str += String.format("%s\n", m.getSignature());
         }
+        for (SootMethod m : this.interfaceMethods) {
+            str += String.format("[bridgePath](J)(RET)%s --> (H)(RET)%s,%s\n",
+                    m.getSignature(), this.interfaceName, m.getName());
+            str += String.format("[bridgePath](H)(ARGS)%s,%s --> (J)(ARGS)%s\n",
+                    this.interfaceName, m.getName(), m.getSignature());
+        }
         return str;
     }
 
@@ -47,16 +53,17 @@ public class JsInterfaceBridge extends Bridge {
     public void export2app() {
         SootField mockField = VirtualWebview.v().getMockField(this, interfaceValue, context);
         for (SootMethod m : interfaceMethods) {
-            VirtualWebview.v().setJavaSourceMethod(m, mockField);
+            VirtualWebview.v().setJavaMethodArgsAsSource(m, mockField);
+            VirtualWebview.v().setJavaMethodRetAsSink(m);
         }
     }
 
     @Override
     public void export2web() {
         for (SootMethod m : interfaceMethods) {
-            VirtualWebview.v().addHTMLsink(String.format("ARGS %s.%s",
+            VirtualWebview.v().setHTMLArgsAsSink(String.format("%s,%s",
                     this.interfaceName, m.getName()));
-            VirtualWebview.v().addHTMLsource(String.format("RET %s.%s",
+            VirtualWebview.v().setHTMLRetAsSource(String.format("%s,%s",
                     this.interfaceName, m.getName()));
         }
     }

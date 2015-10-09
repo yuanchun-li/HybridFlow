@@ -3,7 +3,7 @@ package com.lynnlyc.web.taintanalysis;
 /**
  * Created by liyc on 9/28/15.
  */
-public class JSInitTaintNode extends JSTaintNode {
+public class JSInitTaintNode implements JSTaintNode {
     public String value;
     public JSInitTaintNode(String value) {
         this.value = value;

@@ -170,4 +170,10 @@ public class Util {
 			e.printStackTrace();
 		}
 	}
+
+	public static void printLines(PrintStream ps, Set<String> lines) {
+		for (String line : lines) {
+			ps.println(line);
+		}
+	}
 }

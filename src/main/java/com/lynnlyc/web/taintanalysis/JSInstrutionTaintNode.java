@@ -7,7 +7,7 @@ import com.ibm.wala.util.collections.Pair;
 /**
  * Created by liyc on 9/28/15.
  */
-public class JSInstrutionTaintNode extends JSTaintNode {
+public class JSInstrutionTaintNode implements JSTaintNode {
     public Pair<CGNode, Integer> value;
 
     public JSInstrutionTaintNode(Pair<CGNode, Integer> value) {

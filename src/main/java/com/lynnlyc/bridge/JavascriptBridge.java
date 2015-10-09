@@ -1,7 +1,6 @@
 package com.lynnlyc.bridge;
 
 import com.lynnlyc.Config;
-import com.lynnlyc.web.WebManager;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -23,17 +22,18 @@ public class JavascriptBridge extends Bridge {
     }
 
     public String toString() {
-        return String.format("JavascriptBridge:\n[id]%d,\n[context]%s,\n[script]%s\n",
-                this.js_id, this.context, this.script);
+        return String.format("JavascriptBridge:\n[id]%d,\n[context]%s,\n[script]%s\n[bridgePath](J)(ARGS)%s --> (H)(ARGS)taintjs_%d\n",
+                this.js_id, this.context, this.script, this.context.getInvokedMethod().getSignature(), this.js_id);
     }
 
     @Override
     public void export2app() {
-        VirtualWebview.v().setJavaSinkMethod(context.getInvokedMethod());
+        VirtualWebview.v().setJavaMethodArgsAsSink(context.getInvokedMethod());
     }
 
     @Override
     public void export2web() {
+        VirtualWebview.v().setJSCodeAsSource(String.format("taintjs_%d", this.js_id));
         String script_file_name = String.format("%s/taintjs_%d.js",
                 Config.htmlDirPath, this.js_id);
         String script = this.script;

@@ -17,16 +17,17 @@ public class EventBridge extends Bridge {
     }
 
     public String toString() {
-        return String.format("EventBridge:\n[eventType]%s,\n[eventTargat]%s\n", this.eventType, this.eventTarget);
+        return String.format("EventBridge:\n[eventType]%s,\n[eventTargat]%s\n[bridgePath](H)(ARGS)window,%s --> (J)(ARGS)%s\n",
+                this.eventType, this.eventTarget, this.eventType, this.eventTarget.getSignature());
     }
 
     @Override
     public void export2app() {
-        VirtualWebview.v().setJavaSourceMethod(eventTarget, null);
+        VirtualWebview.v().setJavaMethodArgsAsSource(eventTarget, null);
     }
 
     @Override
     public void export2web() {
-        VirtualWebview.v().addHTMLsink(String.format("ARGS window.%s", this.eventType));
+        VirtualWebview.v().setHTMLArgsAsSink(String.format("window,%s", this.eventType));
     }
 }

@@ -8,7 +8,7 @@ import com.ibm.wala.util.collections.Pair;
 /**
  * Created by liyc on 9/27/15.
  */
-public class JSLocalTaintNode extends JSTaintNode {
+public class JSLocalTaintNode implements JSTaintNode {
     public Pair<MethodReference, Integer> value;
 
     public JSLocalTaintNode(Pair<MethodReference, Integer> value) {

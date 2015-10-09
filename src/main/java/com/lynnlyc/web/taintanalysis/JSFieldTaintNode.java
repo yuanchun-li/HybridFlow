@@ -6,7 +6,7 @@ import com.ibm.wala.types.FieldReference;
 /**
  * Created by liyc on 9/27/15.
  */
-public class JSFieldTaintNode extends JSTaintNode {
+public class JSFieldTaintNode implements JSTaintNode {
     public FieldReference value;
 
     public JSFieldTaintNode(FieldReference field) {

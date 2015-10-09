@@ -41,6 +41,15 @@ public class WebViewClientBridge extends Bridge {
         for (SootMethod m : clientMethods) {
             str += String.format("%s\n", m.getSignature());
         }
+        for (SootMethod m : clientMethods) {
+            String mName = m.getName();
+            String tags = this.getHTMLAPIByName(mName);
+            if (mName.equals("shouldOverrideUrlLoading"))
+                str += String.format("[bridgePath](H)(PUT)%s --> (J)(ARGS)%s\n", tags, m.getSignature());
+            else
+                str += String.format("[bridgePath](H)(ARGS)%s --> (J)(ARGS)%s\n", tags, m.getSignature());
+
+        }
         return str;
     }
 
@@ -48,33 +57,41 @@ public class WebViewClientBridge extends Bridge {
     public void export2app() {
         SootField mockField = VirtualWebview.v().getMockField(this, clientValue, context);
         for (SootMethod m : clientMethods) {
-            VirtualWebview.v().setJavaSourceMethod(m, mockField);
+            VirtualWebview.v().setJavaMethodArgsAsSource(m, mockField);
         }
     }
 
     @Override
     public void export2web() {
         for (SootMethod m : clientMethods) {
-            String m_name = m.getName();
-            String html_api = "";
-            switch (m_name) {
-                case "onJsAlert":
-                    html_api = "alert";
-                    break;
-                case "onJsConfirm":
-                    html_api = "confirm";
-                    break;
-                case "onJsPrompt":
-                    html_api = "prompt";
-                    break;
-                case "onConsoleMessage":
-                    html_api = "console";
-                    break;
-                case "shouldOverrideUrlLoading":
-                    html_api = "load";
-                    break;
-            }
-            VirtualWebview.v().addHTMLsink(String.format("ARGS window.%s", html_api));
+            String mName = m.getName();
+            String tags = this.getHTMLAPIByName(mName);
+            if (mName.equals("shouldOverrideUrlLoading"))
+                VirtualWebview.v().setHTMLFieldPutAsSink(tags);
+            else
+                VirtualWebview.v().setHTMLArgsAsSink(tags);
         }
+    }
+
+    private String getHTMLAPIByName(String mName) {
+        String html_api = "";
+        switch (mName) {
+            case "onJsAlert":
+                html_api = "window,alert";
+                break;
+            case "onJsConfirm":
+                html_api = "window,confirm";
+                break;
+            case "onJsPrompt":
+                html_api = "window,prompt";
+                break;
+            case "onConsoleMessage":
+                html_api = "window,console";
+                break;
+            case "shouldOverrideUrlLoading":
+                html_api = "window,location,href";
+                break;
+        }
+        return html_api;
     }
 }

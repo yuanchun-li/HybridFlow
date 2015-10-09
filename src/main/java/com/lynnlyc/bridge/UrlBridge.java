@@ -2,7 +2,6 @@ package com.lynnlyc.bridge;
 
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
-import com.lynnlyc.web.WebManager;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -26,13 +25,13 @@ public class UrlBridge extends Bridge {
         this.url_id = url_count++;
     }
     public String toString() {
-        return String.format("UrlBridge:\n[id]%d,\n[context]%s,\n[url]%s\n",
-                this.url_id, this.context, this.url);
+        return String.format("UrlBridge:\n[id]%d,\n[context]%s,\n[url]%s\n[bridgePath](J)(ARGS)%s --> (H)(CODE)%s",
+                this.url_id, this.context, this.url, this.context.getInvokedMethod(), this.url);
     }
 
     @Override
     public void export2app() {
-        VirtualWebview.v().setJavaSinkMethod(context.getInvokedMethod());
+        VirtualWebview.v().setJavaMethodArgsAsSink(context.getInvokedMethod());
     }
 
     @Override

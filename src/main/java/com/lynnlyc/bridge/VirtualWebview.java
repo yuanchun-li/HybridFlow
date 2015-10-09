@@ -3,24 +3,19 @@ package com.lynnlyc.bridge;
 import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import com.lynnlyc.app.AppManager;
-import com.lynnlyc.web.WebManager;
 import org.apache.commons.io.FileUtils;
 import soot.*;
 import soot.jimple.Jimple;
 import soot.jimple.JimpleBody;
+import soot.jimple.internal.JReturnStmt;
+import soot.toolkits.scalar.Pair;
 
-import javax.swing.plaf.synth.SynthEditorPaneUI;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.logging.Level;
+import java.util.*;
 
 /**
  * Created by yuanchun on 5/4/15.
@@ -75,11 +70,15 @@ public class VirtualWebview {
     }
 
     // set parameters of a method as sources
-    public void setJavaSourceMethod(SootMethod method, SootField baseField) {
+    public void setJavaMethodArgsAsSource(SootMethod method, SootField baseField) {
+        String mockArgsName = "HybridFlow_ARGS_" + method.getName();
+        SootMethod mockArgs = this.createMockSource(mockArgsName);
+        Local taintedLocal = newLocalTaintedByMethod(objectClass.getType(), mockArgs);
+
         List<Type> para_types = method.getParameterTypes();
         List<Value> paras = new ArrayList<>();
         for (Type t : para_types) {
-            paras.add(getTaintedLocal(t));
+            paras.add(taintedLocal);
         }
 
         if (method.isStatic()) {
@@ -87,7 +86,7 @@ public class VirtualWebview {
                     Jimple.v().newStaticInvokeExpr(method.makeRef(), paras)));
         }
         else {
-            Local base = getNewLocal(baseField.getType());
+            Local base = newLocal(baseField.getType());
             mockMainBody.getUnits().addLast(Jimple.v().newAssignStmt(
                     base, Jimple.v().newStaticFieldRef(baseField.makeRef())));
             mockMainBody.getUnits().addLast(Jimple.v().newInvokeStmt(
@@ -95,27 +94,102 @@ public class VirtualWebview {
         }
     }
 
-    public void setJavaSinkMethod(SootMethod method) {
+    public void setJavaMethodRetAsSource(SootMethod method) {
+        String line = String.format("%s -> _SOURCE_", method.getSignature());
+        Config.javaSourcesAndSinks.add(line);
+    }
+
+    public void setJavaMethodArgsAsSink(SootMethod method) {
         String line = String.format("%s -> _SINK_", method.getSignature());
         Config.javaSourcesAndSinks.add(line);
     }
 
+    public void setJavaMethodRetAsSink(SootMethod method) {
+        if (!method.hasActiveBody()) {
+            return;
+        }
+        Body b = method.getActiveBody();
+
+        String mockRetName = "HybridFlow_RET_" + method.getName();
+        SootMethod mockRet = this.createMockSink(mockRetName);
+
+        Set<Pair<Unit, Value>> mockSinkSites = new HashSet<>();
+
+        for (Unit u : b.getUnits()) {
+            if (u instanceof JReturnStmt) {
+                JReturnStmt retStmt = (JReturnStmt) u;
+                for (ValueBox retValueBox : retStmt.getUseBoxes()) {
+                    Value retValue = retValueBox.getValue();
+                    mockSinkSites.add(new Pair<>(u, retValue));
+                }
+            }
+        }
+
+        for (Pair<Unit, Value> mockSinkSite : mockSinkSites) {
+            Unit u = mockSinkSite.getO1();
+            Value v = mockSinkSite.getO2();
+            List<Value> paras = new ArrayList<>();
+            paras.add(v);
+            Unit mockSinkStmt = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(mockRet.makeRef(), paras));
+            b.getUnits().insertAfter(mockSinkStmt, u);
+        }
+    }
+
     private SootClass webViewBridgeClass;
     private SootMethod mockMain;
+//    private SootMethod mockSource, mockSink;
     private JimpleBody mockMainBody;
     private SootClass objectClass;
-    private Local taintedObject;
+//    private Local taintedObject;
 
     private static int localCount = 0;
-    private Local getNewLocal(Type t) {
+    private Local newLocal(Type t) {
         String localName = "local_" + localCount++;
         Local local = Jimple.v().newLocal(localName, t);
         mockMainBody.getLocals().addLast(local);
         return local;
     }
 
-    private Local getTaintedLocal(Type t) {
-        return taintedObject;
+//    private Local getTaintedLocal(Type t) {
+//        return taintedObject;
+//    }
+
+    private Local newLocalTaintedByMethod(Type t, SootMethod mockSource) {
+        Local taintedLocal = newLocal(t);
+        mockMainBody.getUnits().addLast(
+                Jimple.v().newAssignStmt(taintedLocal,
+                        Jimple.v().newStaticInvokeExpr(
+                                mockSource.makeRef(), new ArrayList<Value>())));
+        return taintedLocal;
+    }
+
+    // create a mock method whose argument is SINK
+    private SootMethod createMockSink(String name) {
+        List<Type> paras = new ArrayList<>();
+        paras.add(objectClass.getType());
+        SootMethod m = new SootMethod(name, paras, VoidType.v(),
+                Modifier.PUBLIC | Modifier.STATIC);
+        webViewBridgeClass.addMethod(m);
+        JimpleBody mockSinkBody = Jimple.v().newBody(m);
+        mockSinkBody.getUnits().addLast(Jimple.v().newReturnVoidStmt());
+        m.setActiveBody(mockSinkBody);
+        this.setJavaMethodArgsAsSink(m);
+        return m;
+    }
+
+    // create a mock method whose ret is SOURCE
+    private SootMethod createMockSource(String name) {
+        List<Type> paras = new ArrayList<>();
+        SootMethod m = new SootMethod(name, paras, objectClass.getType(),
+                Modifier.PUBLIC | Modifier.STATIC);
+        webViewBridgeClass.addMethod(m);
+        JimpleBody mockSourceBody = Jimple.v().newBody(m);
+        mockSourceBody.getUnits().addLast(
+                Jimple.v().newReturnStmt(
+                        Jimple.v().newLocal("taint", objectClass.getType())));
+        m.setActiveBody(mockSourceBody);
+        this.setJavaMethodRetAsSource(m);
+        return m;
     }
 
     public void instrumentBridgeToApp() {
@@ -127,50 +201,23 @@ public class VirtualWebview {
         webViewBridgeClass = new SootClass(Config.projectName, Modifier.PUBLIC);
         webViewBridgeClass.setSuperclass(threadClass);
 
-        List<Type> paras = new ArrayList<>();
-        paras.add(threadClass.getType());
-        mockMain = new SootMethod("main", paras, VoidType.v(), Modifier.PUBLIC|Modifier.STATIC);
+        List<Type> parasTypes = new ArrayList<>();
+        parasTypes.add(threadClass.getType());
+        mockMain = new SootMethod("main", parasTypes, VoidType.v(), Modifier.PUBLIC|Modifier.STATIC);
         mockMainBody = Jimple.v().newBody(mockMain);
         mockMain.setActiveBody(mockMainBody);
-
-        paras = new ArrayList<>();
-        SootMethod mockSource = new SootMethod("mockSource", paras, objectClass.getType(),
-                Modifier.PUBLIC | Modifier.STATIC);
-
-        paras = new ArrayList<>();
-        paras.add(objectClass.getType());
-        SootMethod mockSink = new SootMethod("mockSink", paras, VoidType.v(),
-                Modifier.PUBLIC | Modifier.STATIC);
-
         webViewBridgeClass.addMethod(mockMain);
-        webViewBridgeClass.addMethod(mockSource);
-        webViewBridgeClass.addMethod(mockSink);
 
-        JimpleBody mockSourceBody = Jimple.v().newBody(mockSource);
-        mockSourceBody.getUnits().addLast(
-                Jimple.v().newReturnStmt(
-                        Jimple.v().newLocal("taint", objectClass.getType())));
-        mockSource.setActiveBody(mockSourceBody);
+        // a demo mockSource --> mockSink flow
+        SootMethod mockSource = this.createMockSource("mockSource");
+        SootMethod mockSink = this.createMockSink("mockSink");
+        Local taintedObject = newLocalTaintedByMethod(objectClass.getType(), mockSource);
+        List<Value> paraValues = new ArrayList<>();
+        paraValues.add(taintedObject);
+        mockMainBody.getUnits().addLast(Jimple.v().newInvokeStmt(
+                Jimple.v().newStaticInvokeExpr(mockSink.makeRef(), paraValues)));
 
-        JimpleBody mockSinkBody = Jimple.v().newBody(mockSink);
-        mockSinkBody.getUnits().addLast(Jimple.v().newReturnVoidStmt());
-        mockSink.setActiveBody(mockSinkBody);
-
-        taintedObject = getNewLocal(objectClass.getType());
-        mockMainBody.getUnits().addLast(
-                Jimple.v().newAssignStmt(taintedObject,
-                        Jimple.v().newStaticInvokeExpr(
-                                mockSource.makeRef(), new ArrayList<Value>())));
-
-        String line = String.format("%s -> _SOURCE_", mockSource.getSignature());
-        Config.javaSourcesAndSinks.add(line);
-
-//        SootMethod sinkExample = Scene.v().getMethod("<com.lynnlyc.webview.WebviewDemoInterface: void logInApp(java.lang.String)>");
-//        setJavaSourceMethod(sinkExample);
-
-        setJavaSinkMethod(mockSink);
-        setJavaSourceMethod(mockSink, null);
-
+//        this.setJavaMethodArgsAsSource(mockSink, null);
         for (Bridge bridge : bridges) {
             bridge.export2app();
         }
@@ -219,13 +266,36 @@ public class VirtualWebview {
         }
     }
 
-    public void addHTMLsource(String source) {
-        String line = String.format("HTML <%s> -> _SOURCE_", source);
-        Config.htmlSourcesAndSinks.add(line);
+    public void setHTMLArgsAsSource(String tags) {
+        setHTMLSourceSink(tags, "ARGS", true);
     }
 
-    public void addHTMLsink(String sink) {
-        String line = String.format("HTML <%s> -> _SINK_", sink);
+    public void setHTMLArgsAsSink(String tags) {
+        setHTMLSourceSink(tags, "ARGS", false);
+    }
+
+    public void setHTMLRetAsSource(String tags) {
+        setHTMLSourceSink(tags, "RET", true);
+    }
+
+    public void setHTMLRetAsSink(String tags) {
+        setHTMLSourceSink(tags, "RET", false);
+    }
+
+    public void setJSCodeAsSource(String tags) {
+        setHTMLSourceSink(tags, "CODE", true);
+    }
+
+    public void setHTMLFieldGetAsSource(String tags) {
+        setHTMLSourceSink(tags, "GET", true);
+    }
+
+    public void setHTMLFieldPutAsSink(String tags) {
+        setHTMLSourceSink(tags, "PUT", false);
+    }
+
+    private void setHTMLSourceSink(String tags, String typeTag, boolean isSource) {
+        String line = String.format("HTML <(%s) %s> -> _%s_", typeTag, tags, isSource?"SOURCE":"SINK");
         Config.htmlSourcesAndSinks.add(line);
     }
 

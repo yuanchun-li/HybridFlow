@@ -18,7 +18,6 @@ import com.ibm.wala.cast.ir.ssa.AstLexicalRead;
 import com.ibm.wala.cast.js.ssa.JavaScriptInvoke;
 import com.ibm.wala.classLoader.CallSiteReference;
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.dataflow.graph.AbstractMeetOperator;
 import com.ibm.wala.dataflow.graph.BitVectorFramework;
@@ -65,8 +64,6 @@ public class JSTaintAnalysis {
      */
     private final IClassHierarchy cha;
 
-    private final Map<IField, BitVector> staticField2DefStatements = HashMapFactory.make();
-
     private static final boolean VERBOSE = true;
 
     private final Map<Pair<CGNode, Integer>, HashSet<String>> invokeInstTags;
@@ -101,7 +98,7 @@ public class JSTaintAnalysis {
                 for (SSAInstruction inst : node.getIR().getInstructions()) {
                     if (inst instanceof JavaScriptInvoke) {
                         CallSiteReference callSite = ((JavaScriptInvoke) inst).getCallSite();
-                        ExplicitCallGraph.ExplicitNode enode = (ExplicitCallGraph.ExplicitNode) node;
+//                        ExplicitCallGraph.ExplicitNode enode = (ExplicitCallGraph.ExplicitNode) node;
                         int numberOftarget = this.cg.getNumberOfTargets(node, callSite);
 
                         if (numberOftarget == 0) {
@@ -114,7 +111,6 @@ public class JSTaintAnalysis {
                                 tagStr += "||";
                                 tagStr += tag;
                             }
-
 
                             Iterator<IClass> allCls = this.cha.getLoaders()[0].iterateAllClasses();
                             while (allCls.hasNext()) {
@@ -154,6 +150,14 @@ public class JSTaintAnalysis {
     }
 
     private void taintInit() {
+        // sources and sinks
+        for (HTMLSourceSink sourceSink : this.sourceSinks) {
+            if (sourceSink.isSource)
+                markNode(sourceSink, mockSource);
+            else
+                markNode(mockSink, sourceSink);
+        }
+
         // fields
         for (CGNode cgNode : icfg.getCallGraph()) {
             for (SSAInstruction instruction : cgNode.getIR().getInstructions()) {
@@ -166,8 +170,8 @@ public class JSTaintAnalysis {
                     JSTaintNode node = new JSFieldTaintNode(fr);
 
                     for (HTMLSourceSink sourceSink : this.getMatchedSourceAndSink(fieldTags)) {
-                        if (sourceSink.isSource) markNode(node, mockSource);
-                        else markNode(mockSink, node);
+                        if (sourceSink.isSource) markNode(node, sourceSink);
+                        else markNode(mockSink, sourceSink);
                     }
                 }
             }
@@ -178,50 +182,56 @@ public class JSTaintAnalysis {
             HashSet<String> methodTags = new HashSet<>();
             methodTags.add(method.getSignature());
 //            methodTags.add(method.getDeclaringClass().getReference().toString());
-            HashSet<HTMLSourceSink> methodSourceSinks = this.getMatchedSourceAndSink(methodTags);
 
-            boolean argsAreSource = false, retIsSink = false;
+            HashSet<JSTaintNode> argNodes = new HashSet<>();
+            HashSet<JSTaintNode> retNodes = new HashSet<>();
 
-            for (HTMLSourceSink sourceSink : methodSourceSinks) {
-                if (sourceSink.isArgs && sourceSink.isSource) argsAreSource = true;
-                if (!sourceSink.isArgs && !sourceSink.isSource) retIsSink = true;
+            icfg.getCallGraph().getEntrypointNodes().add(cgNode);
+            int[] paraIds = cgNode.getIR().getSymbolTable().getParameterValueNumbers();
+            for (int i : paraIds) {
+                JSTaintNode taintNode = new JSLocalTaintNode(Pair.make(method.getReference(), i));
+                argNodes.add(taintNode);
             }
-
             // instructions
             IR ir = cgNode.getIR();
-            if (ir == null) {
-                continue;
-            }
-            SSAInstruction[] instructions = ir.getInstructions();
-            for (int i = 0; i < instructions.length; i++) {
-                SSAInstruction instruction = instructions[i];
-                if (instruction instanceof JavaScriptInvoke) {
-                    Pair<CGNode, Integer> instPair = Pair.make(cgNode, i);
-                    JSTaintNode taintNode = new JSInstrutionTaintNode(instPair);
-                    HashSet<String> invokeMethodTags = this.invokeInstTags.get(instPair);
-                    boolean argsAreSink = false, retIsSource = false;
-                    for (HTMLSourceSink sourceSink : this.getMatchedSourceAndSink(invokeMethodTags)) {
-                        if (sourceSink.isSource && !sourceSink.isArgs) retIsSource = true;
-                        if (!sourceSink.isSource && sourceSink.isArgs) argsAreSink = true;
+            if (ir != null) {
+                SSAInstruction[] instructions = ir.getInstructions();
+                for (int i = 0; i < instructions.length; i++) {
+                    SSAInstruction instruction = instructions[i];
+                    if (instruction instanceof JavaScriptInvoke) {
+                        Pair<CGNode, Integer> instPair = Pair.make(cgNode, i);
+                        JSTaintNode taintNode = new JSInstrutionTaintNode(instPair);
+                        HashSet<String> invokeMethodTags = this.invokeInstTags.get(instPair);
+
+                        for (HTMLSourceSink sourceSink : this.getMatchedSourceAndSink(invokeMethodTags)) {
+                            if (sourceSink.isSource && sourceSink.isRet()) {
+                                this.markNode(taintNode, sourceSink);
+                            } else if (!sourceSink.isSource && sourceSink.isArgs()) {
+                                this.markNode(sourceSink, taintNode);
+                            }
+                        }
+                    } else if (instruction instanceof SSAReturnInstruction) {
+                        JSTaintNode taintNode = new JSInstrutionTaintNode(Pair.make(cgNode, i));
+                        retNodes.add(taintNode);
                     }
-                    if (retIsSource) this.markNode(taintNode, mockSource);
-                    if (argsAreSink) this.markNode(mockSink, taintNode);
-                }
-                else if (retIsSink && instruction instanceof SSAReturnInstruction) {
-                    JSTaintNode taintNode = new JSInstrutionTaintNode(Pair.make(cgNode, i));
-                    this.markNode(mockSink, taintNode);
                 }
             }
 
-            // locals
-            if (argsAreSource) {
-                icfg.getCallGraph().getEntrypointNodes().add(cgNode);
-                int[] paraIds = cgNode.getIR().getSymbolTable().getParameterValueNumbers();
-                for (int i : paraIds) {
-                    JSTaintNode taintNode = new JSLocalTaintNode(Pair.make(method.getReference(), i));
-                    this.markNode(taintNode, mockSource);
+            HashSet<HTMLSourceSink> methodSourceSinks = this.getMatchedSourceAndSink(methodTags);
+
+            for (HTMLSourceSink sourceSink : methodSourceSinks) {
+                if (sourceSink.isArgs() && sourceSink.isSource) {
+                    for (JSTaintNode argNode : argNodes) {
+                        this.markNode(argNode, sourceSink);
+                    }
+                }
+                else if (sourceSink.isRet() && !sourceSink.isSource) {
+                    for (JSTaintNode retNode : retNodes) {
+                        this.markNode(sourceSink, retNode);
+                    }
                 }
             }
+
         }
 
     }
@@ -253,11 +263,14 @@ public class JSTaintAnalysis {
     private OrdinalSetMapping<JSTaintNode> numberTaintNodes() {
         ArrayList<JSTaintNode> taintNodes = new ArrayList<>();
 
-        IClassHierarchy cha = this.cha;
-
         // init
         taintNodes.add(mockSource);
         taintNodes.add(mockSink);
+
+        // sources and sinks
+        for (HTMLSourceSink sourceSink : this.sourceSinks) {
+            taintNodes.add(sourceSink);
+        }
 
         // fields
         for (CGNode cgNode : icfg.getCallGraph()) {
@@ -293,7 +306,7 @@ public class JSTaintAnalysis {
             }
         }
 
-        return new ObjectArrayMapping<JSTaintNode>(taintNodes.toArray(new JSTaintNode[taintNodes.size()]));
+        return new ObjectArrayMapping<>(taintNodes.toArray(new JSTaintNode[taintNodes.size()]));
     }
 
     private Map<Pair<CGNode, Integer>, HashSet<String>> tagInvokeInsts() {
@@ -325,8 +338,7 @@ public class JSTaintAnalysis {
     private HashSet<String> getReachingTags(CGNode node, SSAInstruction inst) {
         HashSet<String> tags = new HashSet<>();
         if (node == null || inst == null) return tags;
-
-        DefUse du = node.getDU();
+//        DefUse du = node.getDU();
 
         if (inst instanceof JavaScriptInvoke) {
             JavaScriptInvoke invoke_inst = (JavaScriptInvoke) inst;
@@ -477,7 +489,7 @@ public class JSTaintAnalysis {
         public UnaryOperator<BitVectorVariable> getEdgeTransferFunction(BasicBlockInContext<IExplodedBasicBlock> src,
                                                                         BasicBlockInContext<IExplodedBasicBlock> dst) {
             SSAInstruction srcInst = src.getDelegate().getInstruction();
-            SSAInstruction dstInst = dst.getDelegate().getInstruction();
+//            SSAInstruction dstInst = dst.getDelegate().getInstruction();
 
             if (!(srcInst instanceof JavaScriptInvoke) && (src.getNode().equals(dst.getNode()))) {
                 // normal edge
@@ -491,9 +503,6 @@ public class JSTaintAnalysis {
             else  {
                 if (srcInst instanceof JavaScriptInvoke && dst.isEntryBlock()) {
                     // call to entry
-                    if (src.getMethod().getSignature().startsWith("taintjs")) {
-                        int a = 0;
-                    }
                     int numPara = ((JavaScriptInvoke) srcInst).getNumberOfParameters();
                     int numMethodPara = dst.getNode().getIR().getNumberOfParameters();
                     if (numPara != numMethodPara && numPara != numMethodPara + 1) {
@@ -564,8 +573,7 @@ public class JSTaintAnalysis {
         // the framework describes the dataflow problem, in particular the underlying graph and the transfer functions
         BitVectorFramework<BasicBlockInContext<IExplodedBasicBlock>, JSTaintNode> framework = new BitVectorFramework<>(
                 icfg, new TransferFunctions(), this.taintNodeNumbering);
-        BitVectorSolver<BasicBlockInContext<IExplodedBasicBlock>> solver = new BitVectorSolver<BasicBlockInContext<IExplodedBasicBlock>>(
-                framework);
+        BitVectorSolver<BasicBlockInContext<IExplodedBasicBlock>> solver = new BitVectorSolver<>(framework);
         try {
             solver.solve(null);
         } catch (CancelException e) {
@@ -662,7 +670,7 @@ public class JSTaintAnalysis {
 
         Set<List<Integer>> paths = this.getTaintPathsTo(sinkNodeId);
         for (List<Integer> path : paths) {
-            if (path.size() <= 3) continue;
+            if (path.size() <= 5) continue;
             Integer head = path.get(0);
             Integer tail = path.get(path.size() - 1);
             if (head == sourceNodeId && tail == sinkNodeId) {
@@ -672,81 +680,68 @@ public class JSTaintAnalysis {
         return result;
     }
 
-    public String path2String(List<Integer> path, boolean numbered) {
-        String numberPathStr = "";
-        String pathStr = "";
-        boolean first = true;
+    public final int PATH_FORMAT_NUMBERED = 0;
+    public final int PATH_FORMAT_WALA_SSA = 1;
+    public final int PATH_FORMAT_TAGGED = 2;
+    public String path2String(List<Integer> path, int format) {
+        if (format == PATH_FORMAT_NUMBERED) return StringUtils.join(path, " --> ");
 
-        for (int node : path) {
-            String nodeStr = taintNodeNumbering.getMappedObject(node).toString();
-            if (first) {
-                numberPathStr = Integer.toString(node);
-                pathStr = nodeStr;
-                first = false;
-            }
-            else {
-                numberPathStr = String.format("%s --> %d", numberPathStr, node);
-                pathStr = String.format("%s --> %s", pathStr, nodeStr);
-            }
+        List<JSTaintNode> nodes = new ArrayList<>();
+        for (int nodeId : path) {
+            nodes.add(taintNodeNumbering.getMappedObject(nodeId));
         }
-        if (numbered) return numberPathStr;
-        else return pathStr;
-    }
+        if (format == PATH_FORMAT_WALA_SSA) return StringUtils.join(nodes, " --> ");
 
-    public String prettyPrintPath(List<Integer> path) {
-        String pathStr = "";
-        boolean first = true;
-        for (int taintNodeId : path) {
-            JSTaintNode taintNode = taintNodeNumbering.getMappedObject(taintNodeId);
-            HashSet<String> tags = null;
-            if (taintNode instanceof JSInstrutionTaintNode) {
+        List<String> taggedNodes = new ArrayList<>();
+        for (JSTaintNode taintNode : nodes) {
+            String taggedNode = null;
+
+            if (taintNode instanceof HTMLSourceSink) {
+                taggedNode = taintNode.toString();
+            }
+            else if (taintNode instanceof JSInstrutionTaintNode) {
                 SSAInstruction inst = ((JSInstrutionTaintNode) taintNode).getInstruction();
                 if (inst instanceof JavaScriptInvoke) {
-                    tags = this.getReachingTags(((JSInstrutionTaintNode) taintNode).value.fst,
-                            inst);
-
+                    taggedNode = getTagsStr(this.getReachingTags(((JSInstrutionTaintNode) taintNode).value.fst, inst));
                 }
             }
-
-            if (taintNode instanceof JSFieldTaintNode) {
+            else if (taintNode instanceof JSFieldTaintNode) {
                 FieldReference field = ((JSFieldTaintNode) taintNode).value;
-                tags = new HashSet<>();
+                HashSet<String> tags = new HashSet<>();
                 tags.add(field.getSignature());
+                taggedNode = getTagsStr(tags);
             }
 
-            if (tags != null) {
-                if (!first) {
-                    pathStr += " --> ";
-                    pathStr += getTagStr(tags);
-                }
-                else {
-                    pathStr += getTagStr(tags);
-                    first = false;
-                }
-            }
+            if (taggedNode != null && taggedNode.length() != 0)
+                taggedNodes.add(taggedNode);
         }
-        return pathStr;
+        if (format == PATH_FORMAT_TAGGED) return StringUtils.join(taggedNodes, " --> ");
+
+        // by default, return tagged path str
+        return StringUtils.join(taggedNodes, " --> ");
     }
 
-    public static String getTagStr(HashSet<String> tags) {
+    public static String getTagsStr(HashSet<String> tags) {
         HashSet<String> filteredTags = new HashSet<>();
         for (String tag : tags) {
-            for (String tagSeg : tag.split(" |\\.|#|:")) {
+            for (String tagSeg : tag.split(" |\\.|#|:|,")) {
                 if (tagSeg.startsWith("LRoot") || tagSeg.startsWith("Lprologue") || tagSeg.length() == 0
                         || tagSeg.startsWith("Lpreamble") || tagSeg.startsWith("__WALA__"))
                     continue;
                 filteredTags.add(tagSeg);
             }
         }
-        return StringUtils.join(filteredTags, '.');
+        ArrayList<String> filteredTagsList = new ArrayList<>(filteredTags);
+        Collections.sort(filteredTagsList);
+        return StringUtils.join(filteredTagsList, ',');
     }
 
     public void dumpResult(PrintStream ps) {
         for (List<Integer> path : this.getSource2SinkTaintPaths()) {
             ps.println("\nsource to sink path:");
-            ps.println(this.path2String(path, true));
-            ps.println(this.path2String(path, false));
-            ps.println(this.prettyPrintPath(path));
+            ps.println("numbered path: " + this.path2String(path, PATH_FORMAT_NUMBERED));
+            ps.println("wala SSA path: " + this.path2String(path, PATH_FORMAT_WALA_SSA));
+            ps.println("tagged path: " + this.path2String(path, PATH_FORMAT_TAGGED));
         }
     }
 }
