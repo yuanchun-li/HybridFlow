@@ -73,12 +73,12 @@ public class VirtualWebview {
     public void setJavaMethodArgsAsSource(SootMethod method, SootField baseField) {
         String mockArgsName = "HybridFlow_ARGS_" + method.getName();
         SootMethod mockArgs = this.createMockSource(mockArgsName);
-        Local taintedLocal = newLocalTaintedByMethod(objectClass.getType(), mockArgs);
+//        Local taintedLocal = newLocalTaintedByMethod(objectClass.getType(), mockArgs);
 
         List<Type> para_types = method.getParameterTypes();
         List<Value> paras = new ArrayList<>();
         for (Type t : para_types) {
-            paras.add(taintedLocal);
+            paras.add(newLocalTaintedByMethod(t, mockArgs));
         }
 
         if (method.isStatic()) {
@@ -137,7 +137,7 @@ public class VirtualWebview {
 
     private SootClass webViewBridgeClass;
     private SootMethod mockMain;
-//    private SootMethod mockSource, mockSink;
+    private SootMethod mockSource, mockSink;
     private JimpleBody mockMainBody;
     private SootClass objectClass;
 //    private Local taintedObject;
@@ -209,15 +209,18 @@ public class VirtualWebview {
         webViewBridgeClass.addMethod(mockMain);
 
         // a demo mockSource --> mockSink flow
-        SootMethod mockSource = this.createMockSource("mockSource");
-        SootMethod mockSink = this.createMockSink("mockSink");
+        mockSource = this.createMockSource("mockSource");
+        mockSink = this.createMockSink("mockSink");
+
         Local taintedObject = newLocalTaintedByMethod(objectClass.getType(), mockSource);
         List<Value> paraValues = new ArrayList<>();
         paraValues.add(taintedObject);
         mockMainBody.getUnits().addLast(Jimple.v().newInvokeStmt(
                 Jimple.v().newStaticInvokeExpr(mockSink.makeRef(), paraValues)));
 
+//        this.setJavaMethodRetAsSink(mockSource);
 //        this.setJavaMethodArgsAsSource(mockSink, null);
+
         for (Bridge bridge : bridges) {
             bridge.export2app();
         }
