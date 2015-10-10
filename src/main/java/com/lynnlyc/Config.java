@@ -191,6 +191,9 @@ public class Config {
                 if (cmd.hasOption('d')) Config.workingDirPath = cmd.getOptionValue('d');
                 else throw new ParseException(String.format(optRequiredPrompt, "d", Config.mode));
             }
+            else {
+                throw new ParseException("invalid mode: " + Config.mode);
+            }
 //            if (cmd.hasOption("web")) Config.htmlDirPath = cmd.getOptionValue("web");
 //            if (cmd.hasOption('f')) Config.outputFormat = cmd.getOptionValue('f');
 //            if (cmd.hasOption("debug")) Util.LOGGER.setLevel(Level.ALL);
@@ -269,8 +272,10 @@ public class Config {
         File logFile = new File(Config.workingDirPath + "/exception.log");
         File bridgeFile = new File(Config.bridgeDirPath + "/bridge.txt");
         File normalLogFile = new File(Config.workingDirPath + "/analysis.log");
+        File sourceSinkFile = new File(Config.workingDirPath + "/SourcesAndSinks.txt");
 
         try {
+            FileUtils.copyFile(new File(Config.sourceAndSinkFilePath), sourceSinkFile);
             bridgePs = new PrintStream(new FileOutputStream(bridgeFile));
             logPs = new PrintStream(new FileOutputStream(logFile));
             FileHandler fh = new FileHandler(normalLogFile.getAbsolutePath());

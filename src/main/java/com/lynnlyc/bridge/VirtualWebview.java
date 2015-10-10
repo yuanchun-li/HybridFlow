@@ -19,7 +19,7 @@ import java.util.*;
 
 /**
  * Created by yuanchun on 5/4/15.
- * Package: webview-flow
+ * webview based hybrid bridges
  */
 public class VirtualWebview {
     private static VirtualWebview virtualWebview;
@@ -43,6 +43,8 @@ public class VirtualWebview {
         loadUrlContexts = new HashSet<>();
         bridges = new HashSet<>();
         mockFields = new HashMap<>();
+        argMocks = new HashMap<>();
+        retMocks = new HashMap<>();
     }
 
     public void dump(PrintStream os) {
@@ -52,12 +54,12 @@ public class VirtualWebview {
     }
 
     // set and get a local as a mock field
-    public static int mockFieldId = 0;
-    public HashMap<Bridge, SootField> mockFields;
+    private static int mockFieldId = 0;
+    private HashMap<Bridge, SootField> mockFields;
     public SootField getMockField(Bridge bridge, Value v, BridgeContext context) {
         if (mockFields.containsKey(bridge)) return mockFields.get(bridge);
 
-        SootField mockField = new SootField(String.format("mock_field_%d", mockFieldId++),
+        SootField mockField = new SootField(String.format("mockField%d", mockFieldId++),
                 v.getType(), Modifier.PUBLIC | Modifier.STATIC);
         webViewBridgeClass.addField(mockField);
         mockFields.put(bridge, mockField);
@@ -70,15 +72,22 @@ public class VirtualWebview {
     }
 
     // set parameters of a method as sources
+    private HashMap<Pair<SootMethod, SootField>, SootMethod> argMocks;
+    public SootMethod getArgMock(SootMethod m, SootField base) {
+        Pair<SootMethod, SootField> mockKey = new Pair<>(m, base);
+        if (argMocks.containsKey(mockKey)) return argMocks.get(mockKey);
+        SootMethod argMock = this.createMockSource(m.getName());
+        argMocks.put(mockKey, argMock);
+        return argMock;
+    }
     public void setJavaMethodArgsAsSource(SootMethod method, SootField baseField) {
-        String mockArgsName = "HybridFlow_ARGS_" + method.getName();
-        SootMethod mockArgs = this.createMockSource(mockArgsName);
-//        Local taintedLocal = newLocalTaintedByMethod(objectClass.getType(), mockArgs);
+        SootMethod argMock = this.getArgMock(method, baseField);
+//        Local taintedLocal = newLocalTaintedByMethod(objectClass.getType(), argMock);
 
         List<Type> para_types = method.getParameterTypes();
         List<Value> paras = new ArrayList<>();
         for (Type t : para_types) {
-            paras.add(newLocalTaintedByMethod(t, mockArgs));
+            paras.add(newLocalTaintedByMethod(t, argMock));
         }
 
         if (method.isStatic()) {
@@ -104,17 +113,22 @@ public class VirtualWebview {
         Config.javaSourcesAndSinks.add(line);
     }
 
+    private HashMap<SootMethod, SootMethod> retMocks;
+    public SootMethod getRetMock(SootMethod mockKey) {
+        if (retMocks.containsKey(mockKey)) return retMocks.get(mockKey);
+        SootMethod retMock = this.createMockSink(mockKey.getName());
+        retMocks.put(mockKey, retMock);
+        return retMock;
+    }
     public void setJavaMethodRetAsSink(SootMethod method) {
         if (!method.hasActiveBody()) {
             return;
         }
-        Body b = method.getActiveBody();
 
-        String mockRetName = "HybridFlow_RET_" + method.getName();
-        SootMethod mockRet = this.createMockSink(mockRetName);
+        SootMethod retMock = this.getRetMock(method);
 
         Set<Pair<Unit, Value>> mockSinkSites = new HashSet<>();
-
+        Body b = method.getActiveBody();
         for (Unit u : b.getUnits()) {
             if (u instanceof JReturnStmt) {
                 JReturnStmt retStmt = (JReturnStmt) u;
@@ -130,7 +144,7 @@ public class VirtualWebview {
             Value v = mockSinkSite.getO2();
             List<Value> paras = new ArrayList<>();
             paras.add(v);
-            Unit mockSinkStmt = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(mockRet.makeRef(), paras));
+            Unit mockSinkStmt = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(retMock.makeRef(), paras));
             b.getUnits().insertAfter(mockSinkStmt, u);
         }
     }
@@ -163,8 +177,10 @@ public class VirtualWebview {
         return taintedLocal;
     }
 
+    private static int mockMethodId = 0;
     // create a mock method whose argument is SINK
     private SootMethod createMockSink(String name) {
+        name = String.format("mockSink%d_%s", mockMethodId++, name);
         List<Type> paras = new ArrayList<>();
         paras.add(objectClass.getType());
         SootMethod m = new SootMethod(name, paras, VoidType.v(),
@@ -179,6 +195,7 @@ public class VirtualWebview {
 
     // create a mock method whose ret is SOURCE
     private SootMethod createMockSource(String name) {
+        name = String.format("mockSource%d_%s", mockMethodId++, name);
         List<Type> paras = new ArrayList<>();
         SootMethod m = new SootMethod(name, paras, objectClass.getType(),
                 Modifier.PUBLIC | Modifier.STATIC);
@@ -209,8 +226,8 @@ public class VirtualWebview {
         webViewBridgeClass.addMethod(mockMain);
 
         // a demo mockSource --> mockSink flow
-        mockSource = this.createMockSource("mockSource");
-        mockSink = this.createMockSink("mockSink");
+        mockSource = this.createMockSource("source");
+        mockSink = this.createMockSink("sink");
 
         Local taintedObject = newLocalTaintedByMethod(objectClass.getType(), mockSource);
         List<Value> paraValues = new ArrayList<>();
@@ -259,7 +276,7 @@ public class VirtualWebview {
         }
     }
 
-    public HashSet<String> possibleURLs = new HashSet<>();
+    private HashSet<String> possibleURLs = new HashSet<>();
     public void addPossibleURL(String url_str) {
         try {
             URL url = new URL(url_str);

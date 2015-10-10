@@ -8,8 +8,8 @@ import soot.SootMethod;
  * Deprecated!
  */
 public class EventBridge extends Bridge {
-    public String eventType;
-    public SootMethod eventTarget;
+    public final String eventType;
+    public final SootMethod eventTarget;
 
     public EventBridge(String eventType, SootMethod eventTarget) {
         this.eventType = eventType;
@@ -17,8 +17,8 @@ public class EventBridge extends Bridge {
     }
 
     public String toString() {
-        return String.format("EventBridge:\n[eventType]%s,\n[eventTargat]%s\n[bridgePath](H)(ARGS)window,%s --> (J)(ARGS)%s\n",
-                this.eventType, this.eventTarget, this.eventType, this.eventTarget.getSignature());
+        return String.format("EventBridge:\n[eventType]%s,\n[eventTargat]%s\n[bridgePath](H)(ARGS)window,%s --> (J)(RET)%s\n",
+                this.eventType, this.eventTarget, this.eventType, VirtualWebview.v().getArgMock(eventTarget, null));
     }
 
     @Override

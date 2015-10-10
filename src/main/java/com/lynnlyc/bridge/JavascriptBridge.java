@@ -11,9 +11,9 @@ import java.io.IOException;
  * Package: webview-flow
  */
 public class JavascriptBridge extends Bridge {
-    public BridgeContext context;
-    public String script;
-    public int js_id;
+    public final BridgeContext context;
+    public final String script;
+    public final int js_id;
     private static int js_count = 0;
     public JavascriptBridge(BridgeContext context, String script) {
         this.context = context;
@@ -22,7 +22,7 @@ public class JavascriptBridge extends Bridge {
     }
 
     public String toString() {
-        return String.format("JavascriptBridge:\n[id]%d,\n[context]%s,\n[script]%s\n[bridgePath](J)(ARGS)%s --> (H)(ARGS)taintjs_%d\n",
+        return String.format("JavascriptBridge:\n[id]%d,\n[context]%s,\n[script]%s\n[bridgePath](J)(ARGS)%s --> (H)(CODE)taintjs_%d\n",
                 this.js_id, this.context, this.script, this.context.getInvokedMethod().getSignature(), this.js_id);
     }
 

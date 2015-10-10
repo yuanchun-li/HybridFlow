@@ -15,9 +15,9 @@ import java.net.UnknownHostException;
  * Package: webview-flow
  */
 public class UrlBridge extends Bridge {
-    public BridgeContext context;
-    public String url;
-    public int url_id;
+    public final BridgeContext context;
+    public final String url;
+    public final int url_id;
     public static int url_count = 0;
     public UrlBridge(BridgeContext context, String url) {
         this.context = context;
@@ -37,6 +37,7 @@ public class UrlBridge extends Bridge {
     @Override
     public void export2web() {
         try {
+            VirtualWebview.v().setJSCodeAsSource(String.format("url_%s", this.url));
             String url_file_name = String.format("%s/url_page_%d.html",
                     Config.htmlDirPath, this.url_id);
             URL url = new URL(this.url);

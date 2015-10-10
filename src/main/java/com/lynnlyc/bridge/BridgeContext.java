@@ -11,9 +11,9 @@ import soot.jimple.Stmt;
  * Package: webview-flow
  */
 public class BridgeContext {
-    public SootMethod method;
-    public Unit unit;
-    public int unitId;
+    public final SootMethod method;
+    public final Unit unit;
+    public final int unitId;
     public BridgeContext(SootMethod method, Unit unit, int unitId) {
         this.unit = unit;
         this.unitId = unitId;

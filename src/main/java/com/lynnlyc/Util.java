@@ -1,45 +1,17 @@
 package com.lynnlyc;
 
 import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.logging.Logger;
 
-import com.ibm.wala.cast.ipa.callgraph.CAstAnalysisScope;
-import com.ibm.wala.cast.ir.ssa.AstIRFactory;
-import com.ibm.wala.cast.ir.translator.TranslatorToCAst.Error;
-import com.ibm.wala.cast.js.html.MappedSourceModule;
-import com.ibm.wala.cast.js.html.WebPageLoaderFactory;
-import com.ibm.wala.cast.js.html.WebUtil;
-import com.ibm.wala.cast.js.ipa.callgraph.JSCallGraphUtil;
-import com.ibm.wala.cast.js.loader.JavaScriptLoader;
-import com.ibm.wala.cast.js.loader.JavaScriptLoaderFactory;
-import com.ibm.wala.cast.js.translator.CAstRhinoTranslatorFactory;
-import com.ibm.wala.cast.loader.AstMethod;
-import com.ibm.wala.cast.types.AstMethodReference;
-import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.classLoader.SourceModule;
-import com.ibm.wala.ipa.callgraph.impl.Everywhere;
-import com.ibm.wala.ipa.cha.ClassHierarchy;
-import com.ibm.wala.ipa.cha.IClassHierarchy;
-import com.ibm.wala.ssa.IR;
-import com.ibm.wala.ssa.IRFactory;
-import com.ibm.wala.ssa.SSAOptions;
-import com.ibm.wala.util.CancelException;
-import com.ibm.wala.util.Predicate;
-import com.ibm.wala.util.WalaException;
-import com.ibm.wala.util.collections.Pair;
 import com.lynnlyc.app.AppManager;
 import com.lynnlyc.app.FlowDroidCaller;
 import com.lynnlyc.bridge.VirtualWebview;
-import com.lynnlyc.merger.Merger;
+import com.lynnlyc.HybridFlow.Merger;
 import com.lynnlyc.web.HTMLTaintAnalysisCaller;
 import org.apache.commons.io.FileUtils;
 import soot.*;
-import soot.options.Options;
 
 public class Util {
     public static final Logger LOGGER = Logger.getLogger("Webview-flow");
@@ -143,9 +115,9 @@ public class Util {
 
 		appManager.generateBridges();
 
-		VirtualWebview.v().dump(Config.getBridgePs());
 		VirtualWebview.v().generateJavaSideResult();
 		VirtualWebview.v().generateHTMLSideResult();
+		VirtualWebview.v().dump(Config.getBridgePs());
 	}
 
 	public static void runTaintAnalysis() {

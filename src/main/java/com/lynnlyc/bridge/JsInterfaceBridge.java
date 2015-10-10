@@ -12,17 +12,17 @@ import java.util.HashSet;
  * Package: webview-flow
  */
 public class JsInterfaceBridge extends Bridge {
-    public SootClass interfaceClass;
-    public Value interfaceValue;
-    public String interfaceName;
-    public HashSet<SootMethod> interfaceMethods;
+    public final SootClass interfaceClass;
+    public final Value interfaceValue;
+    public final String interfaceName;
+    public final HashSet<SootMethod> interfaceMethods;
     private BridgeContext context;
     public JsInterfaceBridge(SootClass interfaceClass, Value interfaceValue, String interfaceName, BridgeContext context) {
         this.interfaceClass = interfaceClass;
         this.interfaceValue = interfaceValue;
         this.interfaceName = interfaceName;
         this.context = context;
-        this.getAllInterfaceMethods();
+        this.interfaceMethods = this.getAllInterfaceMethods();
     }
 
     public String toString() {
@@ -31,22 +31,24 @@ public class JsInterfaceBridge extends Bridge {
         for (SootMethod m : this.interfaceMethods) {
             str += String.format("%s\n", m.getSignature());
         }
+        SootField mockField = VirtualWebview.v().getMockField(this, interfaceValue, context);
         for (SootMethod m : this.interfaceMethods) {
-            str += String.format("[bridgePath](J)(RET)%s --> (H)(RET)%s,%s\n",
-                    m.getSignature(), this.interfaceName, m.getName());
-            str += String.format("[bridgePath](H)(ARGS)%s,%s --> (J)(ARGS)%s\n",
-                    this.interfaceName, m.getName(), m.getSignature());
+            str += String.format("[bridgePath](J)(ARGS)%s --> (H)(RET)%s,%s\n",
+                    VirtualWebview.v().getRetMock(m).getSignature(), this.interfaceName, m.getName());
+            str += String.format("[bridgePath](H)(ARGS)%s,%s --> (J)(RET)%s\n",
+                    this.interfaceName, m.getName(), VirtualWebview.v().getArgMock(m, mockField));
         }
         return str;
     }
 
-    private void getAllInterfaceMethods() {
-        interfaceMethods = new HashSet<>();
+    private HashSet<SootMethod> getAllInterfaceMethods() {
+        HashSet<SootMethod> interfaceMethods = new HashSet<>();
         for (SootMethod m : this.interfaceClass.getMethods()) {
             if (!m.isPublic() || m.isConstructor() || m.isAbstract())
                 continue;
             interfaceMethods.add(m);
         }
+        return interfaceMethods;
     }
 
     @Override

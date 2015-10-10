@@ -102,7 +102,7 @@ public class FlowDroidCaller {
         ProcessBuilder pb = new ProcessBuilder("java", "-jar", "FlowDroid.jar", this.appFileName, this.androidPlatformHome);
         pb.directory(this.targetDirFile);
         pb.redirectOutput(flowDroidResult);
-//        pb.redirectError(flowDroidResult);
+        pb.redirectError(flowDroidResult);
         try {
             Process flowdroid = pb.start();
             if (0 != flowdroid.waitFor())
