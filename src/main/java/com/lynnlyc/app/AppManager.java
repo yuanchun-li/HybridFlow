@@ -174,7 +174,7 @@ public class AppManager {
         appEntryPoints = Util.findEntryPoints();
         Scene.v().setEntryPoints(appEntryPoints);
 
-        VirtualWebview.v().setWebviewClasses(webviewClasses);
+//        VirtualWebview.v().setWebviewClasses(webviewClasses);
 
         this.isPrepared = true;
     }
