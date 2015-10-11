@@ -63,20 +63,24 @@ public class Merger {
             e.printStackTrace();
         }
 
-        ps.println("\n## FlowDroid taint path:\n");
-        printEdges(ps, javaFlowEdges);
-        ps.println("\n## HTML taint path:\n");
-        printEdges(ps, htmlFlowEdges);
-        ps.println("\n## Hybrid bridges:\n");
-        printEdges(ps, bridgeFlowEdges);
-
         edges.addAll(javaFlowEdges);
         edges.addAll(htmlFlowEdges);
         edges.addAll(bridgeFlowEdges);
-
         this.mergeFlows();
-        ps.println("\n\n## Merged taint paths:");
+
+        ps.println("\n# Analysis Result:\n");
+
+        ps.println("\n## Merged taint paths:\n");
         printEdges(ps, mergedFlows);
+
+        ps.println("\n## Respective taint edges:\n");
+        ps.println("\n### FlowDroid edges:\n");
+        printEdges(ps, javaFlowEdges);
+        ps.println("\n### HTML edges:\n");
+        printEdges(ps, htmlFlowEdges);
+        ps.println("\n### Hybrid bridges:\n");
+        printEdges(ps, bridgeFlowEdges);
+
     }
 
     private static final String flowdroidPathLogPrefix = "[main] INFO soot.jimple.infoflow.Infoflow - \ton Path:";

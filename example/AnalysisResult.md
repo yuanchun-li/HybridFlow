@@ -1,5 +1,100 @@
 
-## FlowDroid taint path:
+# Analysis Result:
+
+
+## Merged taint paths:
+
+***
+
+**Source**: (H)(RET)`document,getElementById`
+
+**Sink**: (J)(ARGS)`<android.os.Handler: boolean sendMessage(android.os.Message)>`
+
+**Path**:
+
+	--> `{{HTML <(RET) document,getElementById> -> _SOURCE_}}`
+
+	--> `document,getElementById,global,resource,v19,v8,window`
+
+	--> `global,msg`
+
+	--> `global,logInApp,msg,v54,webviewdemo,window`
+
+	--> `{{HTML <(ARGS) webviewdemo,logInApp> -> _SINK_}}`
+
+	--> `(H)(ARGS)webviewdemo,logInApp`
+
+	--> `(J)(RET)<HybridFlow: java.lang.Object mockSource2_logInApp()>`
+
+	--> `$r4 = staticinvoke <HybridFlow: java.lang.Object mockSource2_logInApp()>()`
+
+	--> `r11 = (java.lang.String) $r4`
+
+	--> `virtualinvoke $r5.<com.lynnlyc.webview.WebviewDemoInterface: void logInApp(java.lang.String)>(r11)`
+
+	--> `$r3.<android.os.Message: java.lang.Object obj> = $r1`
+
+	--> `virtualinvoke $r6.<android.os.Handler: boolean sendMessage(android.os.Message)>($r3)`
+
+***
+
+***
+
+**Source**: (J)(RET)`<android.location.LocationManager: android.location.Location getLastKnownLocation(java.lang.String)>`
+
+**Sink**: (J)(ARGS)`<android.util.Log: int d(java.lang.String,java.lang.String)>`
+
+**Path**:
+
+	--> `$r4 = virtualinvoke $r3.<android.location.LocationManager: android.location.Location getLastKnownLocation(java.lang.String)>("network")`
+
+	--> `$r5 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r4)`
+
+	--> `$r2 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.String toString()>()`
+
+	--> `virtualinvoke $r1.<com.lynnlyc.webview.MyActivity: void log(java.lang.String)>($r2)`
+
+	--> `staticinvoke <android.util.Log: int d(java.lang.String,java.lang.String)>("WebviewActivity", $r1)`
+
+***
+
+***
+
+**Source**: (H)(RET)`document,getElementById`
+
+**Sink**: (J)(ARGS)`<android.util.Log: int d(java.lang.String,java.lang.String)>`
+
+**Path**:
+
+	--> `{{HTML <(RET) document,getElementById> -> _SOURCE_}}`
+
+	--> `document,getElementById,global,resource,v19,v8,window`
+
+	--> `global,msg`
+
+	--> `global,logInApp,msg,v54,webviewdemo,window`
+
+	--> `{{HTML <(ARGS) webviewdemo,logInApp> -> _SINK_}}`
+
+	--> `(H)(ARGS)webviewdemo,logInApp`
+
+	--> `(J)(RET)<HybridFlow: java.lang.Object mockSource2_logInApp()>`
+
+	--> `$r4 = staticinvoke <HybridFlow: java.lang.Object mockSource2_logInApp()>()`
+
+	--> `r11 = (java.lang.String) $r4`
+
+	--> `virtualinvoke $r5.<com.lynnlyc.webview.WebviewDemoInterface: void logInApp(java.lang.String)>(r11)`
+
+	--> `staticinvoke <android.util.Log: int d(java.lang.String,java.lang.String)>("JSInterface", $r1)`
+
+***
+
+
+## Respective taint edges:
+
+
+### FlowDroid edges:
 
 ***
 
@@ -74,7 +169,7 @@
 ***
 
 
-## HTML taint path:
+### HTML edges:
 
 ***
 
@@ -225,7 +320,7 @@
 ***
 
 
-## Hybrid bridges:
+### Hybrid bridges:
 
 ***
 
@@ -476,95 +571,6 @@
 	--> `(J)(ARGS)<android.webkit.WebView: void loadUrl(java.lang.String)>`
 
 	--> `(H)(CODE)http://lynnblog.sinaapp.com/webview`
-
-***
-
-
-
-## Merged taint paths:
-***
-
-**Source**: (H)(RET)`document,getElementById`
-
-**Sink**: (J)(ARGS)`<android.os.Handler: boolean sendMessage(android.os.Message)>`
-
-**Path**:
-
-	--> `{{HTML <(RET) document,getElementById> -> _SOURCE_}}`
-
-	--> `document,getElementById,global,resource,v19,v8,window`
-
-	--> `global,msg`
-
-	--> `global,logInApp,msg,v54,webviewdemo,window`
-
-	--> `{{HTML <(ARGS) webviewdemo,logInApp> -> _SINK_}}`
-
-	--> `(H)(ARGS)webviewdemo,logInApp`
-
-	--> `(J)(RET)<HybridFlow: java.lang.Object mockSource2_logInApp()>`
-
-	--> `$r4 = staticinvoke <HybridFlow: java.lang.Object mockSource2_logInApp()>()`
-
-	--> `r11 = (java.lang.String) $r4`
-
-	--> `virtualinvoke $r5.<com.lynnlyc.webview.WebviewDemoInterface: void logInApp(java.lang.String)>(r11)`
-
-	--> `$r3.<android.os.Message: java.lang.Object obj> = $r1`
-
-	--> `virtualinvoke $r6.<android.os.Handler: boolean sendMessage(android.os.Message)>($r3)`
-
-***
-
-***
-
-**Source**: (J)(RET)`<android.location.LocationManager: android.location.Location getLastKnownLocation(java.lang.String)>`
-
-**Sink**: (J)(ARGS)`<android.util.Log: int d(java.lang.String,java.lang.String)>`
-
-**Path**:
-
-	--> `$r4 = virtualinvoke $r3.<android.location.LocationManager: android.location.Location getLastKnownLocation(java.lang.String)>("network")`
-
-	--> `$r5 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r4)`
-
-	--> `$r2 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.String toString()>()`
-
-	--> `virtualinvoke $r1.<com.lynnlyc.webview.MyActivity: void log(java.lang.String)>($r2)`
-
-	--> `staticinvoke <android.util.Log: int d(java.lang.String,java.lang.String)>("WebviewActivity", $r1)`
-
-***
-
-***
-
-**Source**: (H)(RET)`document,getElementById`
-
-**Sink**: (J)(ARGS)`<android.util.Log: int d(java.lang.String,java.lang.String)>`
-
-**Path**:
-
-	--> `{{HTML <(RET) document,getElementById> -> _SOURCE_}}`
-
-	--> `document,getElementById,global,resource,v19,v8,window`
-
-	--> `global,msg`
-
-	--> `global,logInApp,msg,v54,webviewdemo,window`
-
-	--> `{{HTML <(ARGS) webviewdemo,logInApp> -> _SINK_}}`
-
-	--> `(H)(ARGS)webviewdemo,logInApp`
-
-	--> `(J)(RET)<HybridFlow: java.lang.Object mockSource2_logInApp()>`
-
-	--> `$r4 = staticinvoke <HybridFlow: java.lang.Object mockSource2_logInApp()>()`
-
-	--> `r11 = (java.lang.String) $r4`
-
-	--> `virtualinvoke $r5.<com.lynnlyc.webview.WebviewDemoInterface: void logInApp(java.lang.String)>(r11)`
-
-	--> `staticinvoke <android.util.Log: int d(java.lang.String,java.lang.String)>("JSInterface", $r1)`
 
 ***
 
