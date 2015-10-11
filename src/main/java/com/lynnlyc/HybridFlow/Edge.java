@@ -77,7 +77,7 @@ public class Edge {
     }
 
     public String toLongString() {
-        return String.format("***\n**Source**: %s\n**Sink**: %s\n**Path**:%s\n***\n",
+        return String.format("***\n\n**Source**: %s\n\n**Sink**: %s\n\n**Path**:%s\n\n***\n",
                 source, sink, getBeautifiedPathStr());
     }
 
@@ -90,7 +90,7 @@ public class Edge {
         String[] pathNodes = StringUtils.splitByWholeSeparator(this.pathStr, " --> ");
         String beautifiedPathStr = "";
         for (String pathNode : pathNodes) {
-            beautifiedPathStr += String.format("\n\t--> `%s`", pathNode);
+            beautifiedPathStr += String.format("\n\n\t--> `%s`", pathNode);
         }
         return beautifiedPathStr;
     }
