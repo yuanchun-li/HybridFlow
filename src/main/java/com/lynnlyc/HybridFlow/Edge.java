@@ -77,11 +77,21 @@ public class Edge {
     }
 
     public String toLongString() {
-        return String.format("Source: %s\nSink: %s\nPath: %s\n", source, sink, this.pathStr);
+        return String.format("***\n**Source**: %s\n**Sink**: %s\n**Path**:%s\n***\n",
+                source, sink, getBeautifiedPathStr());
     }
 
     @Override
     public int hashCode() {
         return this.toString().hashCode();
+    }
+
+    public String getBeautifiedPathStr() {
+        String[] pathNodes = StringUtils.splitByWholeSeparator(this.pathStr, " --> ");
+        String beautifiedPathStr = "";
+        for (String pathNode : pathNodes) {
+            beautifiedPathStr += String.format("\n\t--> `%s`", pathNode);
+        }
+        return beautifiedPathStr;
     }
 }

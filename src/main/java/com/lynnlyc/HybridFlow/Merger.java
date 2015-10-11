@@ -15,10 +15,16 @@ import java.util.*;
 public class Merger {
     private static Merger merger;
     private Merger() {
-        javaPathStrs = new HashSet<>();
-        htmlPathStrs = new HashSet<>();
-        bridgePathStrs = new HashSet<>();
-        sourceSinkStrs = new HashSet<>();
+        javaFlowEdges = new HashSet<>();
+        htmlFlowEdges = new HashSet<>();
+        bridgeFlowEdges = new HashSet<>();
+
+        edges = new HashSet<>();
+        sourceNodes = new HashSet<>();
+        sinkNodes = new HashSet<>();
+
+        mergedFlows = new HashSet<>();
+
         merger = this;
     }
     public static Merger v() {
@@ -27,10 +33,19 @@ public class Merger {
         return merger;
     }
 
-    private Set<String> javaPathStrs;
-    private Set<String> htmlPathStrs;
-    private Set<String> bridgePathStrs;
-    private Set<String> sourceSinkStrs;
+    private Set<Edge> javaFlowEdges;
+    private Set<Edge> htmlFlowEdges;
+    private Set<Edge> bridgeFlowEdges;
+
+    // problem is:
+    // given a set of edges of graph
+    // find all paths from source nodes to sink nodes
+    private Set<Node> sourceNodes;
+    private Set<Node> sinkNodes;
+    private Set<Edge> edges;
+
+    // result
+    private Set<Edge> mergedFlows;
 
     public void merge(String targetDir, PrintStream ps) {
         File javaTaintPathFile = new File(targetDir, "java/TaintAnalysis.log");
@@ -39,30 +54,36 @@ public class Merger {
         File sourceSinkFile = new File(targetDir, "SourcesAndSinks.txt");
 
         try {
-            javaPathStrs = parseFlowdroidTaintPathFile(javaTaintPathFile);
-            htmlPathStrs = parseTaggedTaintPathFile(htmlTaintPathFile);
-            bridgePathStrs = parseBridgeFile(bridgeFile);
-            sourceSinkStrs = parseSourceSinkFile(sourceSinkFile);
+            parseFlowdroidTaintPathFile(javaTaintPathFile);
+            parseTaggedTaintPathFile(htmlTaintPathFile);
+            parseBridgeFile(bridgeFile);
+            parseSourceSinkFile(sourceSinkFile);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        ps.println("\njava taint path:");
-        Util.printLines(ps, javaPathStrs);
-        ps.println("\nhtml taint path:");
-        Util.printLines(ps, htmlPathStrs);
-        ps.println("\nbridge taint path:");
-        Util.printLines(ps, bridgePathStrs);
-        ps.println("\n\nmerged source to sink paths:");
-        Util.printLines(ps, this.mergeFlow(sourceSinkStrs, bridgePathStrs, javaPathStrs, htmlPathStrs));
+        ps.println("\n## FlowDroid taint path:\n");
+        printEdges(ps, javaFlowEdges);
+        ps.println("\n## HTML taint path:\n");
+        printEdges(ps, htmlFlowEdges);
+        ps.println("\n## Hybrid bridges:\n");
+        printEdges(ps, bridgeFlowEdges);
+
+        edges.addAll(javaFlowEdges);
+        edges.addAll(htmlFlowEdges);
+        edges.addAll(bridgeFlowEdges);
+
+        this.mergeFlows();
+        ps.println("\n\n## Merged taint paths:");
+        printEdges(ps, mergedFlows);
     }
 
     private static final String flowdroidPathLogPrefix = "[main] INFO soot.jimple.infoflow.Infoflow - \ton Path:";
     private static final String flowdroidNodeLogPrefix = "[main] INFO soot.jimple.infoflow.Infoflow - \t\t -> ";
-    private Set<String> parseFlowdroidTaintPathFile(File javaTaintPathFile) throws IOException {
+    private void parseFlowdroidTaintPathFile(File javaTaintPathFile) throws IOException {
         List<String> lines = FileUtils.readLines(javaTaintPathFile);
-        HashSet<String> paths = new HashSet<>();
+//        Set<String> paths = new HashSet<>();
 
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
@@ -73,78 +94,70 @@ public class Merger {
                 for (j = i+1; j < lines.size(); j++) {
                     String nodeLine = lines.get(j);
                     if (nodeLine.startsWith(flowdroidNodeLogPrefix)) {
-                        nodes.add(StringUtils.removeStart(nodeLine, flowdroidNodeLogPrefix));
+                        nodes.add(StringUtils.removeStart(nodeLine, flowdroidNodeLogPrefix).trim());
                     }
                     else break;
                 }
                 i = j;
-                paths.add(StringUtils.join(nodes, " --> "));
+                String pathStr = StringUtils.join(nodes, " --> ");
+//                paths.add(pathStr);
+                Edge e = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_FLOWDROID);
+                if (e != null) javaFlowEdges.add(e);
             }
         }
-        return paths;
     }
 
-    private Set<String> parseTaggedTaintPathFile(File htmlTaintPathFile) throws IOException {
+    private Set<Edge> parseTaggedTaintPathFile(File htmlTaintPathFile) throws IOException {
         List<String> lines = FileUtils.readLines(htmlTaintPathFile);
-        HashSet<String> paths = new HashSet<>();
+//        HashSet<String> paths = new HashSet<>();
+        Set<Edge> edges = new HashSet<>();
+
         for (String line : lines) {
             line = line.trim();
             if (line.startsWith("tagged path: ")) {
-                paths.add(line.substring(13));
+                String pathStr = line.substring(13).trim();
+//                paths.add(pathStr);
+                Edge e = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_TAGGED);
+                if (e != null) htmlFlowEdges.add(e);
             }
         }
-        return paths;
+        return edges;
     }
 
-    private Set<String> parseBridgeFile(File bridgeFile) throws IOException {
+    private Set<Edge> parseBridgeFile(File bridgeFile) throws IOException {
         List<String> lines = FileUtils.readLines(bridgeFile);
-        HashSet<String> paths = new HashSet<>();
+//        HashSet<String> paths = new HashSet<>();
+        Set<Edge> edges = new HashSet<>();
+
         for (String line : lines) {
             line = line.trim();
             if (line.startsWith("[bridgePath]")) {
-                paths.add(line.substring(12));
+                String pathStr = line.substring(12).trim();
+//                paths.add(pathStr);
+                Edge e = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_BRIDGE);
+                if (e != null) bridgeFlowEdges.add(e);
             }
         }
-        return paths;
+        return edges;
     }
 
-    private Set<String> parseSourceSinkFile(File sourceSinkFile) throws IOException {
+    private void parseSourceSinkFile(File sourceSinkFile) throws IOException {
         List<String> lines = FileUtils.readLines(sourceSinkFile);
-        return new HashSet<>(lines);
-    }
-
-    private Set<String> mergeFlow(Set<String> originalSourceSinkStrs, Set<String> bridgePathStrs,
-                                  Set<String> javaPathStrs, Set<String> htmlPathStrs) {
-        Set<Node> originalSources = new HashSet<>();
-        Set<Node> originalSinks = new HashSet<>();
-        Set<Edge> edges = new HashSet<>();
-        Set<String> mergedPathStrs = new HashSet<>();
-        for (String line : originalSourceSinkStrs) {
+        for (String line : lines) {
             if (line.length() == 0 || line.startsWith("%")) continue;
             Node node = Node.buildFromSourceSinkLine(line);
             if (node == null) continue;
-            if (node.isHead) originalSources.add(node);
-            else originalSinks.add(node);
+            if (node.isHead) sourceNodes.add(node);
+            else sinkNodes.add(node);
         }
-        for (String pathStr : bridgePathStrs) {
-            Edge flow = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_BRIDGE);
-            if (flow != null) edges.add(flow);
-        }
-        for (String pathStr : javaPathStrs) {
-            Edge flow = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_FLOWDROID);
-            if (flow != null) edges.add(flow);
-        }
-        for (String pathStr : htmlPathStrs) {
-            Edge flow = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_TAGGED);
-            if (flow != null) edges.add(flow);
-        }
+    }
 
-        Set<List<Edge>> hybridPaths = findHybridPathsFromSourcesToSinks(originalSources, originalSinks, edges);
+    private void mergeFlows() {
+        Set<List<Edge>> hybridPaths = findHybridPathsFromSourcesToSinks(sourceNodes, sinkNodes, edges);
         for (List<Edge> hybridPath : hybridPaths) {
             Edge hybridFlow = Edge.combineEdgesToOne(hybridPath);
-            mergedPathStrs.add(hybridFlow.toLongString());
+            mergedFlows.add(hybridFlow);
         }
-        return mergedPathStrs;
     }
 
     public static Set<List<Edge>> findHybridPathsFromSourcesToSinks(Set<Node> sources,
@@ -200,5 +213,11 @@ public class Merger {
             }
         }
         return hybridPaths;
+    }
+
+    public static void printEdges(PrintStream ps, Set<Edge> edges) {
+        for (Edge e : edges) {
+            ps.println(e.toLongString());
+        }
     }
 }

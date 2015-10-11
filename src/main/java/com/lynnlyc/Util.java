@@ -135,17 +135,11 @@ public class Util {
         if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeMergeTaintFlow)))
             return;
         Util.LOGGER.info("merging taint flow");
-		File outputFile = FileUtils.getFile(Config.workingDirPath, "AnalysisResult.txt");
+		File outputFile = FileUtils.getFile(Config.workingDirPath, "AnalysisResult.md");
 		try {
 			Merger.v().merge(Config.workingDirPath, new PrintStream(new FileOutputStream(outputFile)));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
-		}
-	}
-
-	public static void printLines(PrintStream ps, Set<String> lines) {
-		for (String line : lines) {
-			ps.println(line);
 		}
 	}
 }

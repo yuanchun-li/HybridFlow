@@ -95,7 +95,7 @@ public class Node {
     @Override
     public String toString() {
         String languageTag = this.languageType == LANGUAGE_JAVA?"J":(this.languageType == LANGUAGE_HTML?"H":"I");
-        return String.format("(%s)(%s)(%s)", languageTag, tag, signature);
+        return String.format("(%s)(%s)`%s`", languageTag, tag, signature);
     }
 
     @Override
