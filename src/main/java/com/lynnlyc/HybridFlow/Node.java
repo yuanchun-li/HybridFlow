@@ -35,11 +35,17 @@ public class Node {
     private static final Pattern taggedNodePattern = Pattern.compile(taggedNodePatternStr);
     private static final String bridgeNodePatternStr = "^\\((J|H)\\)\\(([A-Za-z0-9]+)\\)(.*)$";
     private static final Pattern bridgeNodePattern = Pattern.compile(bridgeNodePatternStr);
+    private static final String flowdroidCallbackSourceNodePatternStr = "^(.+)@parameter(.*) in method (<.+>)$";
+    private static final Pattern flowdroidCallbackSourceNodePattern = Pattern.compile(flowdroidCallbackSourceNodePatternStr);
     public static Node buildFromFlowNode(String nodeStr, int nodeType, boolean isHead) {
         if (nodeType == NODE_FLOWDROID) {
             Matcher m = flowdroidNodePattern.matcher(nodeStr);
             if (m.find()) {
                 return new Node(LANGUAGE_JAVA, isHead? "RET":"ARGS", m.group(3), isHead);
+            }
+            m = flowdroidCallbackSourceNodePattern.matcher(nodeStr);
+            if (m.find()) {
+                return new Node(LANGUAGE_JAVA, "ARGS", m.group(3), isHead);
             }
         }
         else if (nodeType == NODE_TAGGED) {

@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Created by liyc on 10/8/15.
@@ -83,17 +84,24 @@ public class Merger {
 
     }
 
-    private static final String flowdroidPathLogPrefix = "[main] INFO soot.jimple.infoflow.Infoflow - \ton Path:";
-    private static final String flowdroidNodeLogPrefix = "[main] INFO soot.jimple.infoflow.Infoflow - \t\t -> ";
+    private static final String flowdroidLogPrefix = "[main] INFO soot.jimple.infoflow.Infoflow - ";
+    private static final String flowdroidPathLogPrefix = flowdroidLogPrefix + "\ton Path:";
+    private static final String flowdroidNodeLogPrefix = flowdroidLogPrefix + "\t\t -> ";
     private void parseFlowdroidTaintPathFile(File javaTaintPathFile) throws IOException {
         List<String> lines = FileUtils.readLines(javaTaintPathFile);
 //        Set<String> paths = new HashSet<>();
 
-        for (int i = 0; i < lines.size(); i++) {
+        for (int i = 1; i < lines.size(); i++) {
             String line = lines.get(i);
             line = line.trim();
             if (line.startsWith(flowdroidPathLogPrefix)) {
+                // handle callback source
                 List<String> nodes = new ArrayList<>();
+                String sourceLine = StringUtils.removeStart(lines.get(i - 1), flowdroidLogPrefix);
+                if (sourceLine.contains("@parameter")) {
+                    nodes.add(sourceLine);
+                }
+
                 int j;
                 for (j = i+1; j < lines.size(); j++) {
                     String nodeLine = lines.get(j);
@@ -103,10 +111,14 @@ public class Merger {
                     else break;
                 }
                 i = j;
+
                 String pathStr = StringUtils.join(nodes, " --> ");
 //                paths.add(pathStr);
                 Edge e = Edge.buildFromPathStr(pathStr, Edge.PATH_TYPE_FLOWDROID);
-                if (e != null) javaFlowEdges.add(e);
+                if (e != null) {
+                    if (sourceLine.contains("@parameter")) sourceNodes.add(e.source);
+                    javaFlowEdges.add(e);
+                }
             }
         }
     }

@@ -38,6 +38,7 @@ import com.ibm.wala.ipa.cha.IClassHierarchy;
 import com.ibm.wala.ssa.*;
 import com.ibm.wala.ssa.analysis.IExplodedBasicBlock;
 import com.ibm.wala.types.FieldReference;
+import com.ibm.wala.types.MethodReference;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.collections.HashMapFactory;
 import com.ibm.wala.util.collections.ObjectArrayMapping;
@@ -530,34 +531,42 @@ public class JSTaintAnalysis {
                 }
                 else if (src.isExitBlock() && !dst.isExitBlock()) {
                     // exit to return
-                    SSAInstruction invokeInst = dst.getNode().getIR().getInstructions()[dst.getFirstInstructionIndex() - 1];
-                    if (invokeInst instanceof JavaScriptInvoke) {
-                        int retDstId = invokeInst.getDef();
-                        JSTaintNode retDstNode = new JSLocalTaintNode(Pair.make(dst.getMethod().getReference(), retDstId));
-                        int retDstNodeId = taintNodeNumbering.getMappedIndex(retDstNode);
+                    BitVector gen = new BitVector();
 
-                        BitVector gen = new BitVector();
+                    Iterator<BasicBlockInContext<IExplodedBasicBlock>> predNodes = icfg.getPredNodes(dst);
 
-                        for (SSAInstruction inst : src.getNode().getIR().getInstructions()) {
-                            if (inst instanceof SSAReturnInstruction) {
-                                for (int i = 0; i < inst.getNumberOfUses(); i++) {
-                                    int retSrcId = inst.getUse(i);
-                                    JSTaintNode retSrcNode = new JSLocalTaintNode(Pair.make(src.getMethod().getReference(), retSrcId));
-                                    int retSrcNodeId = taintNodeNumbering.getMappedIndex(retSrcNode);
+                    while (predNodes.hasNext()) {
+                        BasicBlockInContext<IExplodedBasicBlock> predNode = predNodes.next();
+//                        if (!icfg.getCallTargets(predNode).contains(src.getNode())) {
+//                            continue;
+//                        }
+                        if (!icfg.hasEdge(predNode, icfg.getEntry(src.getNode()))) {
+                            continue;
+                        }
+                        SSAInstruction invokeInst = predNode.getDelegate().getInstruction();
+                        if (invokeInst instanceof JavaScriptInvoke) {
+                            int retDstId = invokeInst.getDef();
+                            JSTaintNode retDstNode = new JSLocalTaintNode(Pair.make(dst.getMethod().getReference(), retDstId));
+                            int retDstNodeId = taintNodeNumbering.getMappedIndex(retDstNode);
 
-                                    BitVector paraSrcNodeValue = taintNodeChain.get(retSrcNodeId);
-                                    if (paraSrcNodeValue != null) {
-                                        markNodeId(retDstNodeId, retSrcNodeId);
-                                        gen.set(retDstNodeId);
+                            for (SSAInstruction inst : src.getNode().getIR().getInstructions()) {
+                                if (inst instanceof SSAReturnInstruction) {
+                                    for (int i = 0; i < inst.getNumberOfUses(); i++) {
+                                        int retSrcId = inst.getUse(i);
+                                        JSTaintNode retSrcNode = new JSLocalTaintNode(Pair.make(src.getMethod().getReference(), retSrcId));
+                                        int retSrcNodeId = taintNodeNumbering.getMappedIndex(retSrcNode);
+
+                                        BitVector paraSrcNodeValue = taintNodeChain.get(retSrcNodeId);
+                                        if (paraSrcNodeValue != null) {
+                                            markNodeId(retDstNodeId, retSrcNodeId);
+                                            gen.set(retDstNodeId);
+                                        }
                                     }
                                 }
                             }
                         }
-                        return new BitVectorKillGen(new BitVector(), gen);
                     }
-                    else {
-                        Util.LOGGER.warning("exit-to-return is not pointing to a invoke instruction");
-                    }
+                    return new BitVectorKillGen(new BitVector(), gen);
                 }
             }
             return BitVectorIdentity.instance();

@@ -81,6 +81,7 @@ public class WebManager {
                 ps.println("\n\nrunning taint analysis on URL: " + possible_url.toString());
                 runTaintAnalysis(cg, ps);
             } catch (Exception e) {
+                e.printStackTrace();
                 Util.LOGGER.warning("analysis failed on URL: " + possible_url.toString());
             }
         }
