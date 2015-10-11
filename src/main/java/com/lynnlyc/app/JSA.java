@@ -1,20 +1,12 @@
 package com.lynnlyc.app;
 
-import com.ibm.wala.cast.tree.CAstType;
-import com.lynnlyc.Config;
-import com.lynnlyc.Util;
-import com.lynnlyc.bridge.Bridge;
 import com.lynnlyc.bridge.BridgeContext;
 import dk.brics.automaton.Automaton;
 import dk.brics.string.StringAnalysis;
-import dk.brics.string.intermediate.Hotspot;
-import soot.PackManager;
-import soot.Scene;
-import soot.Value;
 import soot.ValueBox;
 
-import java.io.PrintStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
 
 /*
  * analyze String argument of webview API

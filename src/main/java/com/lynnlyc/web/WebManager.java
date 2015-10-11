@@ -94,7 +94,6 @@ public class WebManager {
     }
 
     public static void printIRs(CallGraph cg) {
-        IClassHierarchy cha = cg.getClassHierarchy();
         for(CGNode n : cg) {
             IR ir = n.getIR();
             System.out.println(ir);

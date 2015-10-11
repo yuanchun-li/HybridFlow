@@ -1,6 +1,5 @@
 package com.lynnlyc.HybridFlow;
 
-import com.lynnlyc.Util;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
@@ -11,6 +10,7 @@ import java.util.*;
 
 /**
  * Created by liyc on 10/8/15.
+ * merge hybrid edges to hybrid taint flows
  */
 public class Merger {
     private static Merger merger;

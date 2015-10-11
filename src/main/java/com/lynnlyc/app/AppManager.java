@@ -1,10 +1,7 @@
 package com.lynnlyc.app;
 
-import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import com.lynnlyc.bridge.*;
-import dk.brics.automaton.Automaton;
-import dk.brics.string.StringAnalysis;
 import soot.*;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
@@ -50,7 +47,7 @@ public class AppManager {
     }
 
     // entry points of soot-based app analysis
-    public List<SootMethod> appEntryPoints = new ArrayList<SootMethod>();
+    public List<SootMethod> appEntryPoints = new ArrayList<>();
 
     public void prepare() {
         Util.LOGGER.info("preparing app analysis");
@@ -163,7 +160,7 @@ public class AppManager {
             }
         }
 
-        HashSet<SootClass> notWebviewClasses = new HashSet<SootClass>();
+        HashSet<SootClass> notWebviewClasses = new HashSet<>();
 
         for(SootClass cls : Scene.v().getApplicationClasses()) {
             if(webviewClasses.contains(cls)) continue;
@@ -209,7 +206,7 @@ public class AppManager {
         for (SootClass cls : webviewClasses) {
             for (SootMethod m : cls.getMethods()) {
                 if (!m.isConcrete()) continue;
-                Body b = null;
+                Body b;
                 if (m.hasActiveBody()) b = m.getActiveBody();
                 else {
                     try {
@@ -341,7 +338,7 @@ public class AppManager {
                                 }
 
                                 Value interfaceObj = expr.getArg(0);
-                                HashSet<Type> possibleTypes = new HashSet<Type>();
+                                HashSet<Type> possibleTypes = new HashSet<>();
 
                                 if (this.pta != null) {
                                     PointsToSet interfaceClass = this.pta.reachingObjects((Local) interfaceObj);
@@ -362,7 +359,7 @@ public class AppManager {
                                     Util.isSimilarMethod(tgt, setWebChromeClientMethod)) {
                                 Value webViewClientValue = expr.getArg(0);
 
-                                HashSet<Type> possibleTypes = new HashSet<Type>();
+                                HashSet<Type> possibleTypes = new HashSet<>();
 
                                 if (this.pta == null) {
                                     possibleTypes.add(webViewClientValue.getType());

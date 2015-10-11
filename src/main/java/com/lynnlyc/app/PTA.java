@@ -1,29 +1,21 @@
 package com.lynnlyc.app;
 
-import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-
 import com.lynnlyc.Config;
-import com.lynnlyc.Util;
-import soot.Body;
-import soot.Local;
-import soot.PointsToAnalysis;
-import soot.PointsToSet;
-import soot.Scene;
-import soot.SootClass;
-import soot.SootMethod;
-import soot.Unit;
-import soot.Value;
+import soot.*;
 import soot.jimple.InvokeExpr;
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.internal.JVirtualInvokeExpr;
 import soot.jimple.spark.SparkTransformer;
 
+import java.io.PrintStream;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+
 public class PTA {
 	public static void runSparkPTA() {
-		HashMap<String, String> opt = new HashMap<String, String>();
+		HashMap<String, String> opt = new HashMap<>();
 		opt.put("enabled", "true");
 //		opt.put("verbose", "true");
 		opt.put("set-impl", "double");
@@ -36,10 +28,8 @@ public class PTA {
 	
 	public static void dumpPTAresult(PrintStream os) {
 		os.println("PTA results:");
-		HashSet<String> methods = new HashSet<String>();
-		for (String method_name : Config.webview_methods) {
-			methods.add(method_name);
-		}
+		HashSet<String> methods = new HashSet<>();
+		Collections.addAll(methods, Config.webview_methods);
 		
 		PointsToAnalysis pta = Scene.v().getPointsToAnalysis();
 		for (SootClass cls : Scene.v().getClasses()) {
@@ -55,11 +45,11 @@ public class PTA {
 							if (methods.contains(virtual_expr.getMethod().getName())){
 								Value base = virtual_expr.getBase();
 								List<Value> args = virtual_expr.getArgs();
-								StringBuffer sb = new StringBuffer();
-								sb.append("\nClass: " + cls);
-								sb.append("\n\tMethod: " + m);
-								sb.append("\n\t\tUnit: " + u);
-								sb.append("\n\t\t\tBase: " + base);
+								StringBuilder sb = new StringBuilder();
+								sb.append("\nClass: ").append(cls);
+								sb.append("\n\tMethod: ").append(m);
+								sb.append("\n\t\tUnit: ").append(u);
+								sb.append("\n\t\t\tBase: ").append(base);
 								if (base instanceof Local) {
 									PointsToSet reaching_objects = pta.reachingObjects((Local) base);
 									sb.append(String.format("\n\t\t\t\tposible string constants: %s",
@@ -69,7 +59,7 @@ public class PTA {
 								}
 								
 								for (Value arg : args) {
-									sb.append("\n\t\t\tArg: " + arg);
+									sb.append("\n\t\t\tArg: ").append(arg);
 									if (arg instanceof Local) {
 										PointsToSet reaching_objects = pta.reachingObjects((Local) arg);
 										sb.append(String.format("\n\t\t\t\tposible string constants: %s",

@@ -1,6 +1,5 @@
 package com.lynnlyc.web;
 
-import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import org.apache.commons.io.FileUtils;
 
@@ -11,12 +10,11 @@ import java.util.List;
 
 /**
  * Created by liyc on 10/7/15.
+ * run taint analysis of given directory
  */
 public class HTMLTaintAnalysisCaller {
     private File targetDirFile;
     private File analysisResult;
-
-    private static String usage = "usage: HTMLTaintAnalysisCaller.main <targetDir>";
 
     private static HTMLTaintAnalysisCaller caller;
     private HTMLTaintAnalysisCaller() {
@@ -101,6 +99,7 @@ public class HTMLTaintAnalysisCaller {
 
     public static void main(String[] args) {
         if (args.length != 1) {
+            String usage = "usage: HTMLTaintAnalysisCaller.main <targetDir>";
             System.out.println(usage);
             return;
         }

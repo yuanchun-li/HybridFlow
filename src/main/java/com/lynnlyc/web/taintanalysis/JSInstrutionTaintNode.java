@@ -6,6 +6,7 @@ import com.ibm.wala.util.collections.Pair;
 
 /**
  * Created by liyc on 9/28/15.
+ * js instruction as TaintNode
  */
 public class JSInstrutionTaintNode implements JSTaintNode {
     public Pair<CGNode, Integer> value;

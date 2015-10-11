@@ -26,7 +26,7 @@ public class Util {
             "<android.webkit.WebView: void setWebChromeClient(android.webkit.WebChromeClient)>";
 
 	public static List<SootMethod> findEntryPoints() {
-		ArrayList<SootMethod> entries = new ArrayList<SootMethod>();
+		ArrayList<SootMethod> entries = new ArrayList<>();
 		for (SootClass cls : Scene.v().getApplicationClasses()) {
 			if (cls.isAbstract()) continue;
 
@@ -127,8 +127,10 @@ public class Util {
 		String javaTargetDir = Config.workingDirPath + "/java";
 		String htmlTargetDir = Config.workingDirPath + "/html";
 
-		FlowDroidCaller.v().run(javaTargetDir);
-		HTMLTaintAnalysisCaller.v().run(htmlTargetDir);
+		if (!FlowDroidCaller.v().run(javaTargetDir))
+            Util.LOGGER.warning("FlowDroid failed");
+		if (!HTMLTaintAnalysisCaller.v().run(htmlTargetDir))
+            Util.LOGGER.warning("HTML taint analysis failed");
 	}
 
 	public static void mergeTaintFlow() {

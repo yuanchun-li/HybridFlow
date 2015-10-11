@@ -6,11 +6,11 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.Collection;
 
 /**
  * Created by liyc on 10/7/15.
+ * call FlowDroid and save the output to java/TaintAnalysis.log
  */
 public class FlowDroidCaller {
     private String appFileName;
@@ -20,8 +20,6 @@ public class FlowDroidCaller {
     private File flowdroidJar;
     private File callbacksTxt;
     private File wrapperTxt;
-
-    private static String usage = "usage: FlowDroidCaller.main <targetDir> <androidPlatformDir>";
 
     private static FlowDroidCaller caller;
     private FlowDroidCaller() {
@@ -116,6 +114,7 @@ public class FlowDroidCaller {
 
     public static void main(String[] args) {
         if (args.length != 2) {
+            String usage = "usage: FlowDroidCaller.main <targetDir> <androidPlatformDir>";
             System.out.println(usage);
             return;
         }

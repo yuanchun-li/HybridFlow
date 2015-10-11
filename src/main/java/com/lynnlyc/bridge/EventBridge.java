@@ -4,7 +4,6 @@ import soot.SootMethod;
 
 /**
  * Created by yuanchun on 5/4/15.
- * Package: webview-
  * Deprecated!
  */
 public class EventBridge extends Bridge {

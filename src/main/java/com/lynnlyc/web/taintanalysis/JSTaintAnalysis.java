@@ -48,7 +48,7 @@ import com.lynnlyc.Util;
 import org.apache.commons.lang.StringUtils;
 
 /**
- * Computes interprocedural reaching definitions for static fields in a context-insensitive manner.
+ * interprocedural taint analysis of JS
  */
 public class JSTaintAnalysis {
 

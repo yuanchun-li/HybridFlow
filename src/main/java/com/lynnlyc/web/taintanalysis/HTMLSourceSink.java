@@ -2,7 +2,6 @@ package com.lynnlyc.web.taintanalysis;
 
 import com.lynnlyc.Util;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

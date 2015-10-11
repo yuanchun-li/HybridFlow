@@ -1,14 +1,12 @@
 package com.lynnlyc.bridge;
 
-import soot.SootClass;
 import soot.SootMethod;
 import soot.Unit;
-import soot.jimple.InvokeStmt;
 import soot.jimple.Stmt;
 
 /**
  * Created by yuanchun on 5/17/15.
- * Package: webview-flow
+ * the context of a bridge. i.e. where the bridge is constructed
  */
 public class BridgeContext {
     public final SootMethod method;

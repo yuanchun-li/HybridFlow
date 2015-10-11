@@ -4,6 +4,7 @@ import soot.SootMethod;
 
 /**
  * Created by liyc on 9/24/15.
+ * mock source method
  */
 public class MockSource {
     public SootMethod sourceMethod;

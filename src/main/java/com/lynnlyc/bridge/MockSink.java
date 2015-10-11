@@ -4,6 +4,7 @@ import soot.SootMethod;
 
 /**
  * Created by liyc on 9/24/15.
+ * mock sink method
  */
 public class MockSink {
     public SootMethod sinkMethod;

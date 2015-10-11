@@ -1,10 +1,10 @@
 package com.lynnlyc.web.taintanalysis;
 
-import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.types.FieldReference;
 
 /**
  * Created by liyc on 9/27/15.
+ * HTML/js field as TaintNode
  */
 public class JSFieldTaintNode implements JSTaintNode {
     public FieldReference value;

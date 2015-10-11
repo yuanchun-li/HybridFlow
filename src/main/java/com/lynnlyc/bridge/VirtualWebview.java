@@ -30,7 +30,7 @@ public class VirtualWebview {
         return virtualWebview;
     }
 
-    private HashSet<SootClass> webviewClasses;
+//    private HashSet<SootClass> webviewClasses;
     private HashSet<BridgeContext> loadUrlContexts;
     public void addLoadUrlContext(BridgeContext context) {
         loadUrlContexts.add(context);
@@ -39,7 +39,7 @@ public class VirtualWebview {
     private HashSet<Bridge> bridges;
 
     private VirtualWebview() {
-        webviewClasses = new HashSet<>();
+//        webviewClasses = new HashSet<>();
         loadUrlContexts = new HashSet<>();
         bridges = new HashSet<>();
         mockFields = new HashMap<>();
@@ -151,7 +151,6 @@ public class VirtualWebview {
 
     private SootClass webViewBridgeClass;
     private SootMethod mockMain;
-    private SootMethod mockSource, mockSink;
     private JimpleBody mockMainBody;
     private SootClass objectClass;
 //    private Local taintedObject;
@@ -226,8 +225,8 @@ public class VirtualWebview {
         webViewBridgeClass.addMethod(mockMain);
 
         // a demo mockSource --> mockSink flow
-        mockSource = this.createMockSource("source");
-        mockSink = this.createMockSink("sink");
+        SootMethod mockSource = this.createMockSource("source");
+        SootMethod mockSink = this.createMockSink("sink");
 
         Local taintedObject = newLocalTaintedByMethod(objectClass.getType(), mockSource);
         List<Value> paraValues = new ArrayList<>();
@@ -338,7 +337,7 @@ public class VirtualWebview {
         this.bridges.add(bridge);
     }
 
-    public void setWebviewClasses(HashSet<SootClass> webviewClasses) {
-        this.webviewClasses = webviewClasses;
-    }
+//    public void setWebviewClasses(HashSet<SootClass> webviewClasses) {
+//        this.webviewClasses = webviewClasses;
+//    }
 }

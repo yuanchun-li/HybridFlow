@@ -7,6 +7,7 @@ import com.ibm.wala.util.collections.Pair;
 
 /**
  * Created by liyc on 9/27/15.
+ * local variable in js code as TaintNode
  */
 public class JSLocalTaintNode implements JSTaintNode {
     public Pair<MethodReference, Integer> value;

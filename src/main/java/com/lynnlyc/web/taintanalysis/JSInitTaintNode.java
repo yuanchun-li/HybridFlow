@@ -2,6 +2,7 @@ package com.lynnlyc.web.taintanalysis;
 
 /**
  * Created by liyc on 9/28/15.
+ * mockSource node and mockSink node
  */
 public class JSInitTaintNode implements JSTaintNode {
     public String value;
