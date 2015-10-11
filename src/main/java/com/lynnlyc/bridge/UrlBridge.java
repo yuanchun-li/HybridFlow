@@ -21,7 +21,15 @@ public class UrlBridge extends Bridge {
     public static int url_count = 0;
     public UrlBridge(BridgeContext context, String url) {
         this.context = context;
-        this.url = url;
+        URL availableURL;
+        try {
+            availableURL = new URL(url);
+        } catch (MalformedURLException e) {
+            Util.LOGGER.warning("malformed url: " + url);
+            availableURL = null;
+        }
+        if (availableURL != null) this.url = availableURL.toString();
+        else this.url = "unknown:" + url;
         this.url_id = url_count++;
     }
     public String toString() {
@@ -36,20 +44,8 @@ public class UrlBridge extends Bridge {
 
     @Override
     public void export2web() {
-        try {
-            VirtualWebview.v().setJSCodeAsSource(String.format("url_%s", this.url));
-            String url_file_name = String.format("%s/url_page_%d.html",
-                    Config.htmlDirPath, this.url_id);
-            URL url = new URL(this.url);
-            File url_file = new File(url_file_name);
-            FileUtils.copyURLToFile(url, url_file);
-            VirtualWebview.v().addPossibleURL(this.url);
-        } catch (MalformedURLException e) {
-            Util.LOGGER.warning("malformed url: " + this.url);
-        } catch (UnknownHostException e) {
-            Util.LOGGER.warning("unknown host: " + this.url);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        VirtualWebview.v().setJSCodeAsSource(String.format("url_%s", this.url));
+        VirtualWebview.v().addPossibleURL(this.url);
     }
 }
+

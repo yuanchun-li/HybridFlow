@@ -7,12 +7,13 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.concurrent.*;
 
 /**
  * Created by liyc on 10/7/15.
  * call FlowDroid and save the output to java/TaintAnalysis.log
  */
-public class FlowDroidCaller {
+public class FlowDroidCaller implements Callable<Boolean> {
     private String appFileName;
     private String androidPlatformHome;
     private File targetDirFile;
@@ -20,6 +21,8 @@ public class FlowDroidCaller {
     private File flowdroidJar;
     private File callbacksTxt;
     private File wrapperTxt;
+
+    private String targetDir;
 
     private static FlowDroidCaller caller;
     private FlowDroidCaller() {
@@ -34,6 +37,14 @@ public class FlowDroidCaller {
             caller = new FlowDroidCaller();
         }
         return caller;
+    }
+
+    public FlowDroidCaller(String targetDir) {
+        this.targetDir = targetDir;
+        appFileName = null;
+        androidPlatformHome = null;
+        targetDirFile = null;
+        caller = this;
     }
 
     public boolean initWithDir(String targetDir) {
@@ -122,5 +133,34 @@ public class FlowDroidCaller {
         System.out.println("Android platforms dir: " + args[1]);
         Config.androidPlatformDir = args[1];
         FlowDroidCaller.v().run(args[0]);
+    }
+
+    public static void callWithTimeOut(String targetDir, int timeoutSeconds) {
+        FlowDroidCaller flowdroidCaller = new FlowDroidCaller(targetDir);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Boolean> future = executor.submit(flowdroidCaller);
+
+        try {
+            Util.LOGGER.info("FlowDroid analysis started!");
+            if (future.get(timeoutSeconds, TimeUnit.SECONDS)) {
+                Util.LOGGER.info("FlowDroid analysis finished!");
+            }
+            else {
+                Util.LOGGER.info("FlowDroid analysis failed");
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            Util.LOGGER.info("FlowDroid analysis failed!");
+            future.cancel(true);
+        } catch (TimeoutException e) {
+            Util.LOGGER.info("FlowDroid analysis timeout!");
+            future.cancel(true);
+        }
+        executor.shutdownNow();
+    }
+
+    @Override
+    public Boolean call() throws Exception {
+        return run(this.targetDir);
     }
 }

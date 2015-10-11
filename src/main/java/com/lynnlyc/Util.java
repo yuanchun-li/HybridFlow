@@ -127,10 +127,8 @@ public class Util {
 		String javaTargetDir = Config.workingDirPath + "/java";
 		String htmlTargetDir = Config.workingDirPath + "/html";
 
-		if (!FlowDroidCaller.v().run(javaTargetDir))
-            Util.LOGGER.warning("FlowDroid failed");
-		if (!HTMLTaintAnalysisCaller.v().run(htmlTargetDir))
-            Util.LOGGER.warning("HTML taint analysis failed");
+		FlowDroidCaller.callWithTimeOut(javaTargetDir, Config.TAINT_ANALYSIS_TIMEOUT_SECONDS);
+		HTMLTaintAnalysisCaller.callWithTimeOut(htmlTargetDir, Config.TAINT_ANALYSIS_TIMEOUT_SECONDS);
 	}
 
 	public static void mergeTaintFlow() {

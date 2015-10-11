@@ -1,5 +1,6 @@
 package com.lynnlyc.web;
 
+import com.ibm.wala.cast.ipa.callgraph.CAstAnalysisScope;
 import com.ibm.wala.cast.ipa.callgraph.CAstCallGraphUtil;
 import com.ibm.wala.cast.ir.ssa.AstIRFactory;
 import com.ibm.wala.cast.ir.translator.TranslatorToCAst;
@@ -13,17 +14,19 @@ import com.ibm.wala.cast.js.translator.CAstRhinoTranslatorFactory;
 import com.ibm.wala.cast.js.translator.JavaScriptTranslatorFactory;
 import com.ibm.wala.cast.loader.CAstAbstractLoader;
 import com.ibm.wala.cast.tree.rewrite.CAstRewriterFactory;
-import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.classLoader.SourceModule;
-import com.ibm.wala.classLoader.SourceURLModule;
+import com.ibm.wala.classLoader.*;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
+import com.ibm.wala.ipa.callgraph.AnalysisScope;
 import com.ibm.wala.ipa.callgraph.CGNode;
 import com.ibm.wala.ipa.callgraph.CallGraph;
+import com.ibm.wala.ipa.cha.ClassHierarchy;
+import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.IClassHierarchy;
 import com.ibm.wala.ssa.*;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.WalaException;
 import com.ibm.wala.util.collections.HashSetFactory;
+import com.ibm.wala.util.warnings.Warning;
 import com.lynnlyc.Util;
 import com.lynnlyc.web.taintanalysis.JSTaintAnalysis;
 import com.lynnlyc.web.taintanalysis.HTMLSourceSink;
@@ -32,9 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URL;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by yuanchun on 5/5/15.
@@ -76,10 +77,9 @@ public class WebManager {
     public void runTaintAnalysis(PrintStream ps) {
         ps.println("analysis result:");
         for (URL possible_url : possibleURLs) {
+            ps.println("\n\nrunning taint analysis on URL: " + possible_url.toString());
             try {
-                CallGraph cg = generateCG(possible_url, taintJsFiles);
-                ps.println("\n\nrunning taint analysis on URL: " + possible_url.toString());
-                runTaintAnalysis(cg, ps);
+                runTaintAnalysis(possible_url, ps);
             } catch (Exception e) {
                 e.printStackTrace();
                 Util.LOGGER.warning("analysis failed on URL: " + possible_url.toString());
@@ -87,7 +87,12 @@ public class WebManager {
         }
     }
 
-    public void runTaintAnalysis(CallGraph cg, PrintStream ps) {
+    public void runTaintAnalysis(URL url, PrintStream ps) {
+        CallGraph cg = generateCG(url, taintJsFiles);
+        if (cg == null) {
+            Util.LOGGER.warning("generating CG failed on URL: " + url.toString());
+            return;
+        }
         JSTaintAnalysis jsTaint = new JSTaintAnalysis(cg, sourceSinks);
         jsTaint.analyze();
         jsTaint.dumpResult(ps);
@@ -131,6 +136,9 @@ public class WebManager {
             }
             SourceModule[] scriptsArray = scripts.toArray(new SourceModule[scripts.size()]);
 
+            scriptsArray = this.removeErrorModules(scriptsArray, loaders);
+
+
             JSCFABuilder builder = JSCallGraphBuilderUtil.makeCGBuilder(loaders, scriptsArray, builderType, irFactory);
             builder.setContextSelector(new PropertyNameContextSelector(builder.getAnalysisCache(), 2, builder.getContextSelector()));
             builder.setBaseURL(possible_url);
@@ -142,5 +150,42 @@ public class WebManager {
             e.printStackTrace();
         }
         return cg;
+    }
+
+    private SourceModule[] removeErrorModules(SourceModule[] scriptsArray, JavaScriptLoaderFactory loaders)
+            throws IOException, ClassHierarchyException {
+        AnalysisScope scope = CAstCallGraphUtil.makeScope(scriptsArray, loaders, JavaScriptLoader.JS);
+        IClassHierarchy cha = ClassHierarchy.make(scope, loaders, JavaScriptLoader.JS);
+        Set<ModuleEntry> errorModules = new HashSet<>();
+        for (IClassLoader loader : cha.getLoaders()) {
+            if(loader instanceof CAstAbstractLoader) {
+                Iterator errors = ((CAstAbstractLoader)loader).getModulesWithParseErrors();
+
+                while(errors.hasNext()) {
+                    ModuleEntry errorModule = (ModuleEntry)errors.next();
+                    errorModules.add(errorModule);
+                }
+
+                ((CAstAbstractLoader)loader).clearMessages();
+            }
+        }
+
+        Set<SourceModule> newSourceModules = new HashSet<>();
+        for (SourceModule sourceModule : scriptsArray) {
+            boolean isErrorModule = false;
+            Iterator<? extends ModuleEntry> moduleEntries = sourceModule.getEntries();
+            while (moduleEntries.hasNext()) {
+                ModuleEntry moduleEntry = moduleEntries.next();
+                if (errorModules.contains(moduleEntry)) {
+                    isErrorModule = true;
+                    break;
+                }
+            }
+            if (isErrorModule) {
+                continue;
+            }
+            newSourceModules.add(sourceModule);
+        }
+        return newSourceModules.toArray(new SourceModule[newSourceModules.size()]);
     }
 }

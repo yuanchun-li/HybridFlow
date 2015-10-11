@@ -277,11 +277,12 @@ public class VirtualWebview {
 
     private HashSet<String> possibleURLs = new HashSet<>();
     public void addPossibleURL(String url_str) {
+        if (url_str.startsWith("unknown")) return;
         try {
             URL url = new URL(url_str);
             possibleURLs.add(url.toString());
         } catch (MalformedURLException e) {
-            Util.LOGGER.warning("incorrect URL: " + url_str);
+            Util.LOGGER.warning("malformed URL: " + url_str);
         }
     }
 
@@ -325,6 +326,20 @@ public class VirtualWebview {
 
         File possibleURLsFile = new File(Config.htmlDirPath + "/possibleURLs.txt");
         File htmlSourceAndSink = new File(Config.htmlDirPath + "/SourcesAndSinks.txt");
+
+        File assetFile = new File(Config.htmlDirPath + "/assets");
+        if (assetFile.exists()) {
+            String[] extensions = new String[]{"html", "js"};
+            Iterator<File> localFiles = FileUtils.iterateFiles(assetFile, extensions, true);
+            while (localFiles.hasNext()) {
+                File localFile = localFiles.next();
+                try {
+                    this.addPossibleURL(localFile.toURI().toURL().toString());
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         try {
             FileUtils.writeLines(possibleURLsFile, possibleURLs);
             FileUtils.writeLines(htmlSourceAndSink, Config.htmlSourcesAndSinks);

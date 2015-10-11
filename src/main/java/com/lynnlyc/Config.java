@@ -12,18 +12,21 @@ package com.lynnlyc;
 import org.apache.commons.cli.*;
 import org.apache.commons.cli.Option;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import soot.options.Options;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.SimpleFormatter;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * Created by yuanchun on 5/4/15.
@@ -59,6 +62,8 @@ public class Config {
 
     private static PrintStream logPs;
     private static PrintStream bridgePs;
+
+    public static final int TAINT_ANALYSIS_TIMEOUT_SECONDS = 180;
 
     // noticeable webview methods
     public static String[] webview_methods = {
@@ -288,11 +293,29 @@ public class Config {
             FileHandler fh = new FileHandler(normalLogFile.getAbsolutePath());
             fh.setFormatter(new SimpleFormatter());
             Util.LOGGER.addHandler(fh);
+            getApkAssets(Config.appFilePath, Config.htmlDirPath);
         } catch (IOException e) {
             e.printStackTrace();
             return false;
         }
+
         return true;
+    }
+
+    private static void getApkAssets(String apkPath, String destPath) throws IOException {
+        ZipFile zipApk = new ZipFile(apkPath);
+        Enumeration<? extends ZipEntry> entries = zipApk.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            String entryName = entry.getName();
+            if (entryName.startsWith("assets") && (entryName.endsWith(".html") || entryName.endsWith(".js"))) {
+                String tgtPath = String.format("%s/%s", destPath, entryName);
+                InputStream in = zipApk.getInputStream(entry);
+                File tgtFile = new File(tgtPath);
+                tgtFile.getParentFile().mkdirs();
+                Files.copy(in, tgtFile.toPath());
+            }
+        }
     }
 
     public static HashSet<String> javaSourcesAndSinks = new HashSet<>();
@@ -318,5 +341,15 @@ public class Config {
             return false;
         }
         return true;
+    }
+
+    public static void main(String[] args) {
+        String apkFile = "/home/liyc/temp/apk_samples/wacai.apk";
+        String dst = "/home/liyc/temp/wacai_assets";
+        try {
+            getApkAssets(apkFile, dst);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
