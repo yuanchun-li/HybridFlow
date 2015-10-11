@@ -247,12 +247,19 @@ public class Config {
     }
 
     public static boolean setUpFileStructure() {
-        File workingDir = new File(String.format("%s/%s_%s/", Config.workingDirPath,
-                Config.projectName, Util.getTimeString()));
-
+//        File workingDir = new File(String.format("%s/%s_%s/", Config.workingDirPath,
+//                Config.projectName, Util.getTimeString()));
+        File workingDir = new File(Config.workingDirPath);
         Config.workingDirPath = workingDir.getPath();
+
         if (!workingDir.exists() && !workingDir.mkdirs())
             return false;
+        try {
+            FileUtils.cleanDirectory(workingDir);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
 
         File javaDir = new File(Config.workingDirPath + "/java");
         if (!javaDir.exists() && !javaDir.mkdir())
