@@ -33,7 +33,7 @@ public class Node {
     private static final Pattern flowdroidNodePattern = Pattern.compile(flowdroidNodePatternStr);
     private static final String taggedNodePatternStr = "^\\{\\{HTML <\\((.+)\\) (.+)> -> _(SOURCE|SINK)_\\}\\}$";
     private static final Pattern taggedNodePattern = Pattern.compile(taggedNodePatternStr);
-    private static final String bridgeNodePatternStr = "^\\((J|H)\\)\\(([A-Za-z0-9]+)\\)(.+)$";
+    private static final String bridgeNodePatternStr = "^\\((J|H)\\)\\(([A-Za-z0-9]+)\\)(.*)$";
     private static final Pattern bridgeNodePattern = Pattern.compile(bridgeNodePatternStr);
     public static Node buildFromFlowNode(String nodeStr, int nodeType, boolean isHead) {
         if (nodeType == NODE_FLOWDROID) {

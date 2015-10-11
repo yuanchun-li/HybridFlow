@@ -25,7 +25,7 @@ public class UrlBridge extends Bridge {
         this.url_id = url_count++;
     }
     public String toString() {
-        return String.format("UrlBridge:\n[id]%d,\n[context]%s,\n[url]%s\n[bridgePath](J)(ARGS)%s --> (H)(CODE)%s",
+        return String.format("UrlBridge:\n[id]%d,\n[context]%s,\n[url]%s\n[bridgePath](J)(ARGS)%s --> (H)(CODE)%s\n",
                 this.url_id, this.context, this.url, this.context.getInvokedMethod(), this.url);
     }
 
