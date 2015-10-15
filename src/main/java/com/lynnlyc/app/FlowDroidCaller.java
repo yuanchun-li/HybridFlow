@@ -24,6 +24,8 @@ public class FlowDroidCaller implements Callable<Boolean> {
 
     private String targetDir;
 
+    private static final String FLOWDROID_OPTS = "--aliasflowins --layoutmode none --noarraysize";
+
     private static FlowDroidCaller caller;
     private FlowDroidCaller() {
         appFileName = null;
@@ -108,7 +110,7 @@ public class FlowDroidCaller implements Callable<Boolean> {
             Util.LOGGER.warning("initialization failed");
             return false;
         }
-        ProcessBuilder pb = new ProcessBuilder("java", "-jar", "FlowDroid.jar", this.appFileName, this.androidPlatformHome);
+        ProcessBuilder pb = new ProcessBuilder("java", "-jar", "FlowDroid.jar", this.appFileName, this.androidPlatformHome, FLOWDROID_OPTS);
         pb.directory(this.targetDirFile);
         pb.redirectOutput(flowDroidResult);
         pb.redirectError(flowDroidResult);
