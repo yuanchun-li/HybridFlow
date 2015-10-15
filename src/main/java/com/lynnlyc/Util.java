@@ -104,6 +104,11 @@ public class Util {
 		Config.configSoot();
 		AppManager appManager = AppManager.v();
 
+        if (!appManager.isHybridApp()) {
+            Util.LOGGER.warning("This is not a hybrid app!");
+            return;
+        }
+
 		if (Config.runPTA)
 			appManager.runPTA();
 		if (Config.runJSA) {
@@ -123,6 +128,9 @@ public class Util {
 	public static void runTaintAnalysis() {
         if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeRunTaintAnalysis)))
             return;
+        if (!AppManager.v().isHybridApp())
+            return;
+
         Util.LOGGER.info("running taint analysis");
 		String javaTargetDir = Config.workingDirPath + "/java";
 		String htmlTargetDir = Config.workingDirPath + "/html";
@@ -134,6 +142,9 @@ public class Util {
 	public static void mergeTaintFlow() {
         if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeMergeTaintFlow)))
             return;
+        if (!AppManager.v().isHybridApp())
+            return;
+
         Util.LOGGER.info("merging taint flow");
 		File outputFile = FileUtils.getFile(Config.workingDirPath, "AnalysisResult.md");
 		try {

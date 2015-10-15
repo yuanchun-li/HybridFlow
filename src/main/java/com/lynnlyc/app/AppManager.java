@@ -7,10 +7,7 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 
 /**
@@ -177,6 +174,10 @@ public class AppManager {
 //        VirtualWebview.v().setWebviewClasses(webviewClasses);
 
         this.isPrepared = true;
+    }
+
+    public Set<SootClass> getWebViewClasses() {
+        return webviewClasses;
     }
 
     public void runPTA() {
@@ -397,5 +398,9 @@ public class AppManager {
             Util.LOGGER.warning("exception during outputing");
             e.printStackTrace();
         }
+    }
+
+    public boolean isHybridApp() {
+        return  (AppManager.v().getWebViewClasses() != null && AppManager.v().getWebViewClasses().size() != 0);
     }
 }
