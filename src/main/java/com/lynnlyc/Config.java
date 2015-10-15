@@ -108,8 +108,8 @@ public class Config {
         appPathOpt.setArgName("apk");
         options.addOption(appPathOpt);
 
-        Option androidPlatformDirOpt = new Option("sdk", true, "path to android sdk home");
-        androidPlatformDirOpt.setArgName("sdk dir");
+        Option androidPlatformDirOpt = new Option("sdk", true, "path to android sdk platforms home");
+        androidPlatformDirOpt.setArgName("sdk platforms");
         options.addOption(androidPlatformDirOpt);
 
         Option sourceToSinkOpt = new Option("source_sink", true, "path to sources and sinks file");
@@ -156,7 +156,7 @@ public class Config {
                 else throw new ParseException(String.format(optRequiredPrompt, "d", Config.mode));
                 if (cmd.hasOption("i")) Config.appFilePath = cmd.getOptionValue("i");
                 else throw new ParseException(String.format(optRequiredPrompt, "i", Config.mode));
-                if (cmd.hasOption("sdk")) Config.androidPlatformDir = cmd.getOptionValue("sdk") + "/platforms";
+                if (cmd.hasOption("sdk")) Config.androidPlatformDir = cmd.getOptionValue("sdk");
                 else throw new ParseException(String.format(optRequiredPrompt, "sdk", Config.mode));
                 if (cmd.hasOption("source_sink")) Config.sourceAndSinkFilePath = cmd.getOptionValue("source_sink");
                 else throw new ParseException(String.format(optRequiredPrompt, "source_sink", Config.mode));
