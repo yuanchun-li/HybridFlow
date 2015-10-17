@@ -128,7 +128,7 @@ public class Util {
 	public static void runTaintAnalysis() {
         if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeRunTaintAnalysis)))
             return;
-        if (!AppManager.v().isHybridApp())
+        if (!Config.isHybridApp)
             return;
 
         Util.LOGGER.info("running taint analysis");
@@ -142,8 +142,8 @@ public class Util {
 	public static void mergeTaintFlow() {
         if (!(Config.mode.equals(Config.modeAll) || Config.mode.equals(Config.modeMergeTaintFlow)))
             return;
-        if (!AppManager.v().isHybridApp())
-            return;
+		if (!Config.isHybridApp)
+			return;
 
         Util.LOGGER.info("merging taint flow");
 		File outputFile = FileUtils.getFile(Config.workingDirPath, "AnalysisResult.md");

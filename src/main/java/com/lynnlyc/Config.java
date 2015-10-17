@@ -96,6 +96,7 @@ public class Config {
             modeAll, "Run step 1-3 at once. (default)");
 
     public static String mode = modeAll;
+    public static boolean isHybridApp = true;
 
     public static boolean parseArgs(String[] args) {
         org.apache.commons.cli.Options options = new org.apache.commons.cli.Options();

@@ -1,5 +1,6 @@
 package com.lynnlyc.app;
 
+import com.lynnlyc.Config;
 import com.lynnlyc.Util;
 import com.lynnlyc.bridge.*;
 import soot.*;
@@ -174,6 +175,7 @@ public class AppManager {
 //        VirtualWebview.v().setWebviewClasses(webviewClasses);
 
         this.isPrepared = true;
+        Config.isHybridApp = this.isHybridApp();
     }
 
     public Set<SootClass> getWebViewClasses() {
