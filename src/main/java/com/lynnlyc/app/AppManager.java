@@ -175,7 +175,7 @@ public class AppManager {
 //        VirtualWebview.v().setWebviewClasses(webviewClasses);
 
         this.isPrepared = true;
-        Config.isHybridApp = this.isHybridApp();
+        Config.isHybridApp = webviewClasses != null && webviewClasses.size() != 0;
     }
 
     public Set<SootClass> getWebViewClasses() {
