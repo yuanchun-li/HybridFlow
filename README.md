@@ -1,6 +1,6 @@
 # HybridFlow
 
-Static taint analysis of Android Hybrid App (Java + HTML).
+Static taint analysis for Android Hybrid Apps (Java + HTML).
 
 
 ## About
@@ -18,7 +18,7 @@ This tool (HybridFlow) aims to fix the gap between existing analysis tools and i
 
 ## How does it work
 
-HybridFlow analyse a hybrid app in three step:
+HybridFlow analyze a hybrid app in three steps:
 
 1. *BuildBridge*. In this step, it performs a points-to analysis and a string analysis to
 determine the hybrid bridges between Java and HTML.
@@ -37,11 +37,11 @@ git clone XXX
 mvn install
 ```
 
-If things go well, the command will generate a executable jar file under `target` directory.
+If everything goes well, this command will generate an executable jar file under the `target` directory.
 
 ## Usage
 
-The tool requires a apk file (which you want to analyze) and a sources and sinks definition as inputs.
+This tool requires a apk file (which you want to analyze) and a sources and sinks definition as inputs.
 
 You may also specify the Android SDK home which contains the proper version of android.jar.
 For example, if the apk is targeted android 19, the android.jar file should appear in `sdk/platforms` directory.
@@ -52,8 +52,7 @@ Run:
 java -jar hybridflow.jar -i webviewdemo.apk -d output -sdk $ANDROID_SDK_HOME$ -source_sink SourcesAndSinks.txt
 ```
 
-If everything goes well, this command will lead to a full execution of all 3 steps,
-a `AnalysisResult.md` file will be generated under `output` directory,
+If everything goes well, a `AnalysisResult.md` file will be generated under the `output` directory,
 which contains the taint analysis result (source to sink paths).
 You can also run each step separately using `-m` option.
 
